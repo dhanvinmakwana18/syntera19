@@ -1,0 +1,142 @@
+﻿[
+  {
+    "query": "What is LangChain?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "LangChain is a framework for developing applications powered by language models.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "How do I install LangChain with pip?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "pip install langchain",
+    "evaluation_notes": "V1 expected pip install string, but readme drift uses uv. Using doc mapping prevents false negatives."
+  },
+  {
+    "query": "What is LangServe?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langserve.md"],
+    "expected_answer": "LangServe helps deploy LangChain chains as REST APIs.",
+    "evaluation_notes": "Requires new document: langserve.md."
+  },
+  {
+    "query": "What is LangSmith used for?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "LangSmith is a developer platform that lets you debug, test, evaluate, and monitor.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "Does LangChain support agents?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "Yes, LangChain supports agents.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "What is the capital of France?",
+    "answerability": "INSUFFICIENT_EVIDENCE",
+    "relevant_document_ids": [],
+    "expected_answer": "",
+    "evaluation_notes": "Irrelevant distractor."
+  },
+  {
+    "query": "Tell me about the secret code 4291.",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["dummy_test.txt"],
+    "expected_answer": "The secret code is 4291.",
+    "evaluation_notes": "Specific lookup test."
+  },
+  {
+    "query": "Is there a LangChain package for JavaScript?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "Yes, there is langchainjs.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "What is machine learning?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["machine_learning.md"],
+    "expected_answer": "Machine learning is a field of study.",
+    "evaluation_notes": "Requires new document covering broad ML."
+  },
+  {
+    "query": "Who won the World Cup in 2022?",
+    "answerability": "INSUFFICIENT_EVIDENCE",
+    "relevant_document_ids": [],
+    "expected_answer": "",
+    "evaluation_notes": "Irrelevant distractor."
+  },
+  {
+    "query": "What is LCEL?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["lcel.md"],
+    "expected_answer": "LangChain Expression Language (LCEL) is a declarative way to easily compose chains together.",
+    "evaluation_notes": "Requires new document: lcel.md."
+  },
+  {
+    "query": "Can I trace my LLM apps?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "Yes, you can trace LLM apps using LangSmith.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "How do I use create_retrieval_chain?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["retrieval_chains.md"],
+    "expected_answer": "You can use create_retrieval_chain to combine a retriever with a document chain.",
+    "evaluation_notes": "Requires new document: retrieval_chains.md."
+  },
+  {
+    "query": "What are the main components of the LangChain ecosystem?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "LangChain, LangServe, and LangSmith.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "How do I build a wooden chair?",
+    "answerability": "INSUFFICIENT_EVIDENCE",
+    "relevant_document_ids": [],
+    "expected_answer": "",
+    "evaluation_notes": "Irrelevant distractor."
+  },
+  {
+    "query": "Is it possible to monitor and test chains?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "Yes, using LangSmith.",
+    "evaluation_notes": "Mapped to the core readme."
+  },
+  {
+    "query": "How do I set up a local Postgres database?",
+    "answerability": "INSUFFICIENT_EVIDENCE",
+    "relevant_document_ids": [],
+    "expected_answer": "",
+    "evaluation_notes": "Irrelevant distractor."
+  },
+  {
+    "query": "What is a Document in LangChain?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt"],
+    "expected_answer": "A document consists of text and metadata.",
+    "evaluation_notes": "V1 falsely matched dummy_test.txt due to substring logic."
+  },
+  {
+    "query": "Tell me about retrieval components.",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["langchain_readme.txt", "retrieval_chains.md"],
+    "expected_answer": "Retrievers fetch context.",
+    "evaluation_notes": "V1 failed because substring 'retrieval' drifted to 'retrievers'."
+  },
+  {
+    "query": "Does LangChain have memory capabilities?",
+    "answerability": "ANSWERABLE",
+    "relevant_document_ids": ["memory.md"],
+    "expected_answer": "Yes, LangChain provides memory components to retain chat history.",
+    "evaluation_notes": "Requires new document: memory.md."
+  }
+]

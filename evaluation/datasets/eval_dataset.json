@@ -1,0 +1,102 @@
+[
+  {
+    "query": "What is LangChain?",
+    "expected_content": "framework for developing applications powered by language models",
+    "should_answer": true
+  },
+  {
+    "query": "How do I install LangChain with pip?",
+    "expected_content": "pip install langchain",
+    "should_answer": true
+  },
+  {
+    "query": "What is LangServe?",
+    "expected_content": "deploy LangChain chains as REST APIs",
+    "should_answer": true
+  },
+  {
+    "query": "What is LangSmith used for?",
+    "expected_content": "developer platform that lets you debug, test, evaluate, and monitor",
+    "should_answer": true
+  },
+  {
+    "query": "Does LangChain support agents?",
+    "expected_content": "Agents",
+    "should_answer": true
+  },
+  {
+    "query": "What is the capital of France?",
+    "expected_content": "",
+    "should_answer": false
+  },
+  {
+    "query": "Tell me about the secret code 4291.",
+    "expected_content": "secret code 4291",
+    "should_answer": true
+  },
+  {
+    "query": "Is there a LangChain package for JavaScript?",
+    "expected_content": "langchainjs",
+    "should_answer": true
+  },
+  {
+    "query": "What is machine learning?",
+    "expected_content": "field of artificial intelligence",
+    "should_answer": true
+  },
+  {
+    "query": "Who won the World Cup in 2022?",
+    "expected_content": "",
+    "should_answer": false
+  },
+  {
+    "query": "What is LCEL?",
+    "expected_content": "LangChain Expression Language",
+    "should_answer": true
+  },
+  {
+    "query": "Can I trace my LLM apps?",
+    "expected_content": "LangSmith",
+    "should_answer": true
+  },
+  {
+    "query": "How do I use create_retrieval_chain?",
+    "expected_content": "create_retrieval_chain",
+    "should_answer": true
+  },
+  {
+    "query": "What are the main components of the LangChain ecosystem?",
+    "expected_content": "LangSmith",
+    "should_answer": true
+  },
+  {
+    "query": "How do I build a wooden chair?",
+    "expected_content": "",
+    "should_answer": false
+  },
+  {
+    "query": "Is it possible to monitor and test chains?",
+    "expected_content": "LangSmith",
+    "should_answer": true
+  },
+  {
+    "query": "How do I set up a local Postgres database?",
+    "expected_content": "",
+    "should_answer": false
+  },
+  {
+    "query": "What is a Document in LangChain?",
+    "expected_content": "Document",
+    "should_answer": true
+  },
+  {
+    "query": "Tell me about retrieval components.",
+    "expected_content": "retrieval",
+    "should_answer": true
+  },
+  {
+    "query": "Does LangChain have memory capabilities?",
+    "expected_content": "memory",
+    "should_answer": true
+  }
+]
