@@ -104,10 +104,11 @@ class BM25Store(BM25Retriever):
 # -------------------------------------------------------------
 # PHASE 4: Component Registration
 # -------------------------------------------------------------
-from core.registry import registry
 
 def create_bm25_retriever() -> BaseRetriever:
     return BM25Store()
 
-registry.register_retriever("bm25", create_bm25_retriever)
 
+
+def register(registry):
+    registry.register_retriever("bm25", create_bm25_retriever)

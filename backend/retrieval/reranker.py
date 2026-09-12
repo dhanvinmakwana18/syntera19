@@ -69,9 +69,10 @@ class RerankerService:
 # -------------------------------------------------------------
 # PHASE 4: Component Registration
 # -------------------------------------------------------------
-from core.registry import registry
 
 def create_cross_encoder_reranker() -> BaseReranker:
     return CrossEncoderReranker()
 
-registry.register_reranker("cross_encoder", create_cross_encoder_reranker)
+
+def register(registry):
+    registry.register_reranker("cross_encoder", create_cross_encoder_reranker)

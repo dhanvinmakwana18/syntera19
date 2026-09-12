@@ -83,101 +83,99 @@ async def chat_endpoint(request: QueryRequest, http_request: Request):
             add_trace("ERROR", f"LLM generation failed: {e}")
     
     elif resolved_mode == "RAG":
-        # Full RAG pipeline
         from core.domain import Query
+        from orchestration.state import RAGState
         
-        ret_start = time.time()
+        graph_start = time.time()
         try:
-            pipeline = container.build_pipeline(
+            # Build the state graph
+            graph = container.build_graph(
                 retrieval_mode=request.retrieval_mode,
-                expand_neighbors=request.expand_neighbors,
-                dense_weight=request.dense_weight,
-                sparse_weight=request.sparse_weight
+                expand_neighbors=request.expand_neighbors
             )
-            result = pipeline.run(Query(text=request.query), limit=request.context_limit)
             
-            # Format context
-            from retrieval.assembler import ContextBuilder
-            context, sources = ContextBuilder().build(result.candidates)
+            # Execute the graph
+            initial_state = RAGState(query=Query(text=request.query))
+            final_state = graph.run(initial_state)
             
-            ret_latency = (time.time() - ret_start) * 1000
-            add_trace("RETRIEVAL", f"Retrieved {len(sources)} chunks via {request.retrieval_mode}", ret_latency)
+            # Extract results
+            answer = final_state.generation_result.answer if final_state.generation_result else "No response generated."
             
-            # Merge pipeline trace
-            for step_trace in result.trace:
-                add_trace(f"PIPELINE.{step_trace.get('stage', 'step')}", step_trace.get('retriever', step_trace.get('strategy', 'stage')), step_trace.get('latency', 0.0) * 1000)
+            if final_state.context and final_state.context.sources:
+                sources = final_state.context.sources
+                
+            # Translate graph trace into API trace
+            for step_trace in final_state.trace:
+                node = step_trace.get('node', 'unknown')
+                status = step_trace.get('status', 'unknown')
+                latency = step_trace.get('latency', 0.0) * 1000
+                add_trace(f"GRAPH.{node.upper()}", f"Status: {status}", latency)
+                
+            graph_latency = (time.time() - graph_start) * 1000
             
-            add_trace("CONTEXT_ASSEMBLY", f"Assembled context from {len(sources)} deduplicated chunks")
-            
-            if not context:
-                answer = "I cannot find sufficient evidence in the knowledge base to answer your question. Please upload relevant documents first."
-                add_trace("GROUNDING", "Insufficient evidence \u2014 no relevant documents found")
-                cited = False
+            if not final_state.success:
+                add_trace("ERROR", final_state.error)
+                answer = "Execution failed: " + final_state.error
                 supported = False
+                return QueryResponse(answer=answer, sources=[], trace=trace, run_id=run_id, grounded=False, routing_mode=resolved_mode)
+
+            
+            cited = len(sources) > 0 and "[Source" in answer
+            
+            # Use verification result if available
+            if final_state.verification_result:
+                supported = final_state.verification_result.passed
+                add_trace("VERIFICATION", final_state.verification_result.reason)
             else:
-                gen_start = time.time()
-                system_prompt = (
-                    "You are Syntera. Use the provided context to answer the user query.\n"
-                    "If the context does not contain the answer, say 'I cannot find the answer in the provided documents.'\n"
-                    "Always cite your sources using [Source X] notation. NEVER fabricate a source."
-                )
-                prompt = f"Context:\n{context}\n\nQuery: {request.query}"
-                llm = container.get_llm()
-                raw_answer = llm.generate(prompt=prompt, system_prompt=system_prompt)
-                gen_latency = (time.time() - gen_start) * 1000
-                add_trace("LLM_GENERATION", f"Generated response", gen_latency)
-                
-                # Citation verification
-                from verification.grounding import validate_citations, evaluate_support
-                answer = validate_citations(raw_answer, sources)
-                
-                # Check if the model refused to answer
-                refusal_phrases = ["cannot find the answer", "no relevant information", "not in the provided documents"]
-                is_refusal = any(p in answer.lower() for p in refusal_phrases)
-                cited = not is_refusal and len(sources) > 0 and "[Source" in answer
-                add_trace("CITATION_CHECK", f"Cited: {cited} | Sources Provided: {len(sources)}")
-
-
-                # Evaluate Support
                 supported = False
-                if not is_refusal and cited:
-                    support_start = time.time()
-                    supported = evaluate_support(answer, context)
-                    support_latency = (time.time() - support_start) * 1000
-                    add_trace("SUPPORT_CHECK", f"Supported: {supported}", support_latency)
-                    
+                
+            add_trace("GRAPH_COMPLETE", f"Graph workflow finished", graph_latency)
+            
         except Exception as e:
             answer = f"Retrieval error: {e}"
-            add_trace("ERROR", f"RAG pipeline failed: {e}")
+            add_trace("ERROR", f"RAG graph pipeline failed: {e}")
             supported = False
             
     elif resolved_mode == "AGENTIC":
-        # Full agentic workflow
-        from orchestration.agentic.workflow import execute_agent
+        # Full agentic workflow via generic ExecutionGraph
+        from orchestration.agentic.state import AgentState
+        from core.domain import Query
         
         agent_start = time.time()
         try:
-            state, source_docs = execute_agent(request.query, container=container)
+            graph = container.build_agentic_graph()
+            initial_state = AgentState(query=Query(text=request.query))
+            final_state = graph.run(initial_state)
+            
             agent_latency = (time.time() - agent_start) * 1000
-            answer = state.response
             
-            # Merge agent trace
-            for t in state.trace:
-                add_trace(f"AGENT.{t['step']}", t['action'])
-            
-            sources = []
-            for res in source_docs:
-                sources.append({
-                    "id": res.get("id"),
-                    "filename": res.get("filename", "Unknown"),
-                    "page": res.get("page", "?"),
-                    "text": res.get("text", "")[:200] + "..." if len(res.get("text", "")) > 200 else res.get("text", ""),
-                    "score": res.get("score", 0), "section": res.get("section", "Unknown"), "is_expanded": res.get("is_expanded", False), "chunk_index": res.get("chunk_index", -1), "block_type": res.get("block_type", "text"), "bbox": res.get("bbox", None)
-                })
-            
-            cited = len(sources) > 0 and "[Source" in answer
-            supported = False # Not running full support check on agentic yet for speed
+            if final_state.success:
+                agent_state = final_state.final_state
+                answer = agent_state.final_answer if agent_state.final_answer else "Agent finished but provided no final answer."
+                
+                # Extract sources from tool observations metadata
+                sources = []
+                for obs in agent_state.observations:
+                    if obs.get("metadata", {}).get("sources"):
+                        sources.extend(obs["metadata"]["sources"])
+                
+                cited = len(sources) > 0 and "[Source" in answer
+                supported = False # Not running full support check on agentic yet for speed
+            else:
+                answer = "Execution failed: " + str(final_state.error)
+                sources = []
+                cited = False
+                supported = False
+
+            # Transfer graph traces
+            for step_trace in final_state.trace:
+                node = step_trace.get('node', 'unknown')
+                status = step_trace.get('status', 'unknown')
+                latency = step_trace.get('latency', 0.0) * 1000
+                add_trace(f"GRAPH.{node.upper()}", f"Status: {status}", latency)
+                
             add_trace("AGENT_COMPLETE", f"Agentic workflow finished", agent_latency)
+            
         except Exception as e:
             answer = f"Agentic workflow error: {e}"
             add_trace("ERROR", f"Agentic pipeline failed: {e}")

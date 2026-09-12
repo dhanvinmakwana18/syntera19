@@ -1,5 +1,10 @@
 from typing import Callable, Dict, Any, Type
-from core.contracts import BaseRetriever, BaseFusionStrategy, BaseReranker, BaseEmbeddingProvider, BaseNodePostProcessor
+from core.contracts import (
+    BaseRetriever, BaseFusionStrategy, BaseReranker, 
+    BaseEmbeddingProvider, BaseNodePostProcessor,
+    BaseQueryProcessor, BaseContextAssembler, 
+    BaseGenerator, BaseVerifier
+)
 
 class ComponentRegistry:
     def __init__(self):
@@ -9,6 +14,11 @@ class ComponentRegistry:
         self._embedding_providers: Dict[str, Callable[..., BaseEmbeddingProvider]] = {}
         self._post_processors: Dict[str, Callable[..., BaseNodePostProcessor]] = {}
         self._llms: Dict[str, Callable[..., Any]] = {}
+        
+        self._query_processors: Dict[str, Callable[..., BaseQueryProcessor]] = {}
+        self._context_assemblers: Dict[str, Callable[..., BaseContextAssembler]] = {}
+        self._generators: Dict[str, Callable[..., BaseGenerator]] = {}
+        self._verifiers: Dict[str, Callable[..., BaseVerifier]] = {}
         
     def register_retriever(self, name: str, factory: Callable[..., BaseRetriever]):
         self._retrievers[name] = factory
@@ -58,5 +68,36 @@ class ComponentRegistry:
             raise ValueError(f"LLM '{name}' not found in registry.")
         return self._llms[name](**kwargs)
 
-# Global registry instance strictly for registration (not state)
-registry = ComponentRegistry()
+    # New Registries
+    def register_query_processor(self, name: str, factory: Callable[..., BaseQueryProcessor]):
+        self._query_processors[name] = factory
+        
+    def get_query_processor(self, name: str, **kwargs) -> BaseQueryProcessor:
+        if name not in self._query_processors:
+            raise ValueError(f"Query Processor '{name}' not found in registry.")
+        return self._query_processors[name](**kwargs)
+        
+    def register_context_assembler(self, name: str, factory: Callable[..., BaseContextAssembler]):
+        self._context_assemblers[name] = factory
+        
+    def get_context_assembler(self, name: str, **kwargs) -> BaseContextAssembler:
+        if name not in self._context_assemblers:
+            raise ValueError(f"Context Assembler '{name}' not found in registry.")
+        return self._context_assemblers[name](**kwargs)
+        
+    def register_generator(self, name: str, factory: Callable[..., BaseGenerator]):
+        self._generators[name] = factory
+        
+    def get_generator(self, name: str, **kwargs) -> BaseGenerator:
+        if name not in self._generators:
+            raise ValueError(f"Generator '{name}' not found in registry.")
+        return self._generators[name](**kwargs)
+        
+    def register_verifier(self, name: str, factory: Callable[..., BaseVerifier]):
+        self._verifiers[name] = factory
+        
+    def get_verifier(self, name: str, **kwargs) -> BaseVerifier:
+        if name not in self._verifiers:
+            raise ValueError(f"Verifier '{name}' not found in registry.")
+        return self._verifiers[name](**kwargs)
+

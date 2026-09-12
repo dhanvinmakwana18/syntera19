@@ -22,9 +22,10 @@ class EmbeddingProvider(BaseEmbeddingProvider):
 # -------------------------------------------------------------
 # PHASE 4: Component Registration
 # -------------------------------------------------------------
-from core.registry import registry
 
 def create_embedding_provider() -> BaseEmbeddingProvider:
     return EmbeddingProvider()
 
-registry.register_embedding_provider("sentence_transformers", create_embedding_provider)
+
+def register(registry):
+    registry.register_embedding_provider("sentence_transformers", create_embedding_provider)

@@ -48,11 +48,12 @@ class NeighborExpansionPostProcessor(BaseNodePostProcessor):
         # Return combined list
         return nodes + expanded_results
 # PHASE 4: Component Registration
-from core.registry import registry
 
 def create_neighbor_expansion(vector_store=None) -> BaseNodePostProcessor:
     return NeighborExpansionPostProcessor(vector_store)
 
-registry.register_post_processor('neighbor_expansion', create_neighbor_expansion)
 
 
+
+def register(registry):
+    registry.register_post_processor('neighbor_expansion', create_neighbor_expansion)

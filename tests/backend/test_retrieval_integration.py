@@ -1,7 +1,7 @@
 import pytest
 from core.container import build_container
 from core.domain import Query
-from retrieval.assembler import ContextBuilder
+from retrieval.assembler import PipelineContextAssembler
 import time
 import uuid
 
@@ -38,7 +38,9 @@ def test_full_retrieval_pipeline():
     start = time.time()
     pipeline = container.build_pipeline(retrieval_mode="hybrid")
     result = pipeline.run(Query(text="What enhances LLM context?"), limit=2)
-    context, sources = ContextBuilder().build(result.candidates)
+    context_res = PipelineContextAssembler().assemble(result.candidates)
+    context = context_res.text
+    sources = context_res.sources
     latency = time.time() - start
     
     print(f"Retrieval Latency: {latency:.4f}s")
