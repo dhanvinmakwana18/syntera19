@@ -227,9 +227,6 @@ def ingest_document(file_path: str, filename: str):
         doc_ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, meta["chunk_id"])) for meta in all_metadatas]
         vector_store.add_texts(all_chunks, all_metadatas, ids=doc_ids)
         from vectorstore.bm25_store import bm25_store
-        if not bm25_store._is_synced:
-            bm25_store.sync_from_qdrant(vector_store)
-        else:
-            bm25_store.add_texts(all_chunks, all_metadatas, doc_ids)
+        bm25_store.add_texts(all_chunks, all_metadatas, doc_ids)
         
     return len(all_chunks)

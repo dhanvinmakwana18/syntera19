@@ -16,17 +16,15 @@ class AgentState:
     def add_trace(self, step: str, action: str):
         self.trace.append({"step": step, "action": action})
         
-def execute_agent(query: str) -> AgentState:
-    from providers.llm import llm_provider
-    from retrieval.pipeline import retrieve_documents
-    
+def execute_agent(query: str, container=None) -> AgentState:
     state = AgentState(query)
     state.add_trace("Init", f"Starting agent workflow for query: '{query}'")
+    llm = container.get_llm()
     
     # 1. ANALYZE
     state.status = "ANALYZING"
     analysis_prompt = f"Analyze this query and decide if we need RAG (retrieval), VISION (image), or DIRECT answer. Query: {query}\nRespond with just RAG, VISION, or DIRECT."
-    intent = llm_provider.generate(prompt=analysis_prompt, system_prompt="You are a query analyzer.").strip().upper()
+    intent = llm.generate(prompt=analysis_prompt, system_prompt="You are a query analyzer.").strip().upper()
     state.add_trace("Analyze", f"Intent classified as {intent}")
     
     # 2. PLAN & SELECT TOOLS
@@ -45,7 +43,11 @@ def execute_agent(query: str) -> AgentState:
     
     if "retrieve_documents" in state.tools_selected:
         try:
-            context, sources = retrieve_documents(query, limit=5)
+            from core.domain import Query
+            from retrieval.assembler import ContextBuilder
+            pipeline = container.build_pipeline()
+            result = pipeline.run(Query(text=query), limit=5)
+            context, sources = ContextBuilder().build(result.candidates)
             state.add_trace("Execute", f"Retrieved {len(sources)} documents")
             state.observations.append({"tool": "retrieve_documents", "result": f"Found {len(sources)} documents"})
         except Exception as e:
@@ -66,9 +68,9 @@ def execute_agent(query: str) -> AgentState:
         prompt = f"Context:\n{context}\n\nQuery: {query}" if context else f"Query: {query}"
         
         try:
-            raw_response = llm_provider.generate(prompt=prompt, system_prompt=system_prompt)
+            raw_response = llm.generate(prompt=prompt, system_prompt=system_prompt)
             if "RAG" in intent and sources:
-                from retrieval import validate_citations
+                from verification.grounding import validate_citations
                 state.response = validate_citations(raw_response, sources)
             else:
                 state.response = raw_response

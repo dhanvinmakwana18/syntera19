@@ -2,13 +2,22 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
+from contextlib import asynccontextmanager
 import time
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from core.container import build_container
+    # Initialize dependency container
+    app.state.container = build_container()
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     description="Autonomous Agentic RAG & Multi-Modal AI Engine API",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -65,15 +74,19 @@ app.include_router(kb_router, prefix=f"{settings.API_V1_STR}/kb")
 app.include_router(mm_router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
-def health_check():
+def health_check(request: Request):
     """Comprehensive health check for Syntera engine."""
     status = "ONLINE"
     components = {}
     
+    container = getattr(request.app.state, "container", None)
+    if not container:
+        return {"status": "INITIALIZING"}
+    
     # Check LLM provider
     try:
-        from providers.llm import llm_provider
-        if llm_provider.gemini_api_key:
+        llm = container.get_llm()
+        if getattr(llm, "gemini_api_key", None):
             components["llm"] = {"status": "ok", "provider": "gemini"}
         else:
             components["llm"] = {"status": "ok", "provider": "ollama (local)"}
@@ -83,12 +96,13 @@ def health_check():
     
     # Check vector store
     try:
-        from vectorstore.qdrant_client import vector_store
-        info = vector_store.client.get_collection(vector_store.collection_name)
+        dense_retriever = container.get_vector_store()
+        v_store = dense_retriever.vector_store
+        info = v_store.client.get_collection(v_store.collection_name)
         count = getattr(info, 'points_count', getattr(info, 'vectors_count', 0))
         components["vector_store"] = {
             "status": "ok",
-            "collection": vector_store.collection_name,
+            "collection": v_store.collection_name,
             "points_count": count
         }
     except Exception as e:
@@ -97,11 +111,11 @@ def health_check():
     
     # Check embedding model
     try:
-        from providers.embeddings import embedding_provider
+        emb = container.get_embedding_provider()
         components["embeddings"] = {
             "status": "ok",
             "model": settings.EMBEDDING_MODEL,
-            "vector_size": embedding_provider.vector_size
+            "vector_size": emb.vector_size
         }
     except Exception as e:
         components["embeddings"] = {"status": "error", "detail": str(e)}
@@ -109,9 +123,9 @@ def health_check():
     
     # Check reranker
     try:
-        from retrieval.reranker import reranker_service
-        if reranker_service.model is not None:
-            components["reranker"] = {"status": "ok", "model": reranker_service.model_name}
+        reranker = container.get_reranker()
+        if getattr(reranker, "model", None) is not None:
+            components["reranker"] = {"status": "ok", "model": getattr(reranker, "model_name", "cross_encoder")}
         else:
             components["reranker"] = {"status": "degraded", "detail": "Model not loaded, fallback active"}
             if status == "ONLINE":

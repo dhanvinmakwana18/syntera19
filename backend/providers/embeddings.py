@@ -1,7 +1,9 @@
 from sentence_transformers import SentenceTransformer
 from core.config import settings
+from core.contracts import BaseEmbeddingProvider
+from typing import List
 
-class EmbeddingProvider:
+class EmbeddingProvider(BaseEmbeddingProvider):
     def __init__(self):
         self.model = SentenceTransformer(settings.EMBEDDING_MODEL)
 
@@ -17,4 +19,12 @@ class EmbeddingProvider:
             return self.model.get_embedding_dimension()
         return self.model.get_sentence_embedding_dimension()
 
-embedding_provider = EmbeddingProvider()
+# -------------------------------------------------------------
+# PHASE 4: Component Registration
+# -------------------------------------------------------------
+from core.registry import registry
+
+def create_embedding_provider() -> BaseEmbeddingProvider:
+    return EmbeddingProvider()
+
+registry.register_embedding_provider("sentence_transformers", create_embedding_provider)

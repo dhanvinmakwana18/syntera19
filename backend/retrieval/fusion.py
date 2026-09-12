@@ -1,13 +1,43 @@
+from core.contracts import BaseFusionStrategy
+from core.domain import RetrievalResult
+from typing import List, Dict
+
+class RRFFusionStrategy(BaseFusionStrategy):
+    """Domain-compliant RRF fusion strategy taking N candidate lists."""
+    def __init__(self, k: int = 60, weights: List[float] = None):
+        self.k = k
+        self.weights = weights
+
+    def fuse(self, candidate_lists: List[List[RetrievalResult]], limit: int = 5, **kwargs) -> List[RetrievalResult]:
+        rrf_scores: Dict[str, dict] = {}
+        
+        weights = self.weights if self.weights else [1.0] * len(candidate_lists)
+        if len(weights) != len(candidate_lists):
+            # Fallback if lengths mismatch
+            weights = [1.0] * len(candidate_lists)
+            
+        for list_idx, candidates in enumerate(candidate_lists):
+            weight = weights[list_idx]
+            for rank, candidate in enumerate(candidates):
+                doc_id = candidate.node.id
+                if doc_id not in rrf_scores:
+                    rrf_scores[doc_id] = {
+                        "score": 0.0,
+                        "node": candidate.node
+                    }
+                rrf_scores[doc_id]["score"] += weight * (1.0 / (self.k + rank + 1))
+                
+        sorted_items = sorted(rrf_scores.values(), key=lambda x: x["score"], reverse=True)
+        
+        results = []
+        for item in sorted_items[:limit]:
+            results.append(RetrievalResult(node=item["node"], score=item["score"]))
+            
+        return results
+
 def reciprocal_rank_fusion(dense_candidates, sparse_candidates, k=60, limit=5, dense_weight=1.0, sparse_weight=1.0):
     """
-    Fuses dense and sparse candidate lists using Reciprocal Rank Fusion (RRF).
-    
-    dense_candidates: List of dicts, e.g. [{"id": "...", "score": 0.8, "payload": {...}}, ...]
-    sparse_candidates: List of dicts, e.g. [{"id": "...", "score": 2.5, "payload": {...}}, ...]
-    k: RRF constant (default 60 is standard)
-    limit: Number of final candidates to return
-    dense_weight: Weight applied to dense candidates RRF contribution
-    sparse_weight: Weight applied to sparse candidates RRF contribution
+    Legacy implementation: Fuses dense and sparse candidate lists using Reciprocal Rank Fusion (RRF).
     """
     rrf_scores = {}
     
@@ -33,7 +63,15 @@ def reciprocal_rank_fusion(dense_candidates, sparse_candidates, k=60, limit=5, d
     for item in sorted_items[:limit]:
         result = item["candidate"].copy()
         result["rrf_score"] = item["score"]
-        # Explicitly tag retrieval method if we want, but since they are fused, we just keep RRF score.
         results.append(result)
         
     return results
+# PHASE 4: Component Registration
+from core.registry import registry
+
+def create_rrf_fusion(**kwargs) -> BaseFusionStrategy:
+    return RRFFusionStrategy()
+
+registry.register_fusion('rrf', create_rrf_fusion)
+
+
