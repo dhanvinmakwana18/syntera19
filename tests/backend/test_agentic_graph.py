@@ -5,11 +5,16 @@ from orchestration.agentic.nodes import PlannerNode, DecisionNode, ToolExecution
 from orchestration.agentic.tools import BaseTool, ToolResult
 from core.domain import Query, GenerationResult
 
-class FakeLLM:
-    def generate(self, prompt, system_prompt, **kwargs):
-        if "json" in system_prompt.lower():
-            return '{"tasks": [{"id": "1", "description": "test", "tool_name": "fake_tool", "tool_input": {"param": "value"}}]}'
-        return "Fake Answer"
+from intelligence.contracts import IntelligenceResponse, StructuredGenerationResult
+
+class FakeIntelligence:
+    def generate(self, prompt, system_prompt=None, **kwargs):
+        return IntelligenceResponse(content="Critic Fake Answer", model="fake", provider="fake", success=True)
+        
+    def structured_generate(self, prompt, schema, system_prompt=None, **kwargs):
+        # Return a fake AgentPlan
+        plan = AgentPlan(tasks=[AgentTask(id="1", description="test", tool_name="fake_tool", tool_input={"param": "value"})])
+        return StructuredGenerationResult(data=plan, raw_response="", model="fake", provider="fake", attempts=1, success=True)
 
 class FakeGenerator:
     def generate(self, query, context, **kwargs):
@@ -26,10 +31,10 @@ class FakeTool(BaseTool):
 def test_agentic_graph_success():
     graph = ExecutionGraph()
     
-    planner = PlannerNode(FakeLLM())
+    planner = PlannerNode(FakeIntelligence())
     decision = DecisionNode()
     tool_exec = ToolExecutionNode(tools=[FakeTool()])
-    critic = CriticNode(FakeGenerator())
+    critic = CriticNode(FakeIntelligence())
     
     graph.add_node(planner)
     graph.add_node(decision)
