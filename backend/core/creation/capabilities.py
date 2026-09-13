@@ -6,8 +6,11 @@ class GraphBlueprint:
     def __init__(self):
         self.nodes: List[Any] = []
         self.edges: List[tuple[str, str]] = []
-        self.entry_point: str = None
         self.conditional_edges: List[tuple[str, Any]] = []
+        self.dependencies: List[Any] = [] # list of (node, depends_on_list)
+        self.entry_point: str = None
+        self.failure_policy: Any = None
+        self.callbacks: List[Any] = []
 
 class BaseCapability(ABC):
     @property

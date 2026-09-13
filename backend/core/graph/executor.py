@@ -1,20 +1,22 @@
 import time
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pydantic import BaseModel
 
-from core.graph.contracts import GraphNode, GraphState, GraphExecutionResult, NodeResult, RoutingDecision
+from core.graph.contracts import GraphNode, GraphState, GraphExecutionResult, NodeResult, RoutingDecision, FailurePolicy, NodeStatus
 
 logger = logging.getLogger(__name__)
 
 class ExecutionGraph:
-    def __init__(self, max_workers: int = 4):
+    def __init__(self, max_workers: int = 4, failure_policy: FailurePolicy = FailurePolicy.FAIL_FAST):
         self.nodes: Dict[str, GraphNode] = {}
         self.edges: Dict[str, str] = {}
         self.conditional_edges: Dict[str, Callable[[Any], List[str]]] = {}
+        self.dependencies: Dict[str, List[str]] = {}
         self.entry_point: str = ""
         self.max_workers = max_workers
+        self.failure_policy = failure_policy
+        self.callbacks: List[Callable[[str, Dict[str, Any]], None]] = []
 
     def add_node(self, node: GraphNode):
         self.nodes[node.name] = node
@@ -28,6 +30,11 @@ class ExecutionGraph:
     def add_conditional_edge(self, from_node: str, condition_fn: Callable[[Any], List[str]]):
         self.conditional_edges[from_node] = condition_fn
         
+    def add_dependency(self, node: str, depends_on: List[str]):
+        if node not in self.dependencies:
+            self.dependencies[node] = []
+        self.dependencies[node].extend(depends_on)
+        
     def validate(self):
         if not self.entry_point:
             raise ValueError("No entry point set.")
@@ -40,13 +47,77 @@ class ExecutionGraph:
             if to_node != "END" and to_node not in self.nodes:
                 raise ValueError(f"Edge destination '{to_node}' is not a registered node.")
 
+    def _fire_event(self, event_type: str, **kwargs):
+        for cb in self.callbacks:
+            try:
+                cb(event_type, kwargs)
+            except Exception as e:
+                logger.error(f"Callback error: {e}")
+
     def run(self, state: GraphState) -> GraphExecutionResult:
         self.validate()
         
-        trace = []
-        active_nodes = [self.entry_point]
+        self._fire_event("GRAPH_START", state=state)
         
-        while active_nodes:
+        trace = []
+        active_nodes = set([self.entry_point])
+        blocked_nodes = set()
+        completed_nodes = set()
+        failed_nodes = set()
+        skipped_nodes = set()
+        
+        while active_nodes or blocked_nodes:
+            # Check blocked nodes to see if they can be unblocked
+            unblocked = set()
+            for n in blocked_nodes:
+                deps = self.dependencies.get(n, [])
+                
+                # Check for skips
+                if any(dep in skipped_nodes or dep in failed_nodes for dep in deps):
+                    if self.failure_policy == FailurePolicy.SKIP_DEPENDENTS:
+                        logger.warning(f"Skipping {n} because a dependency failed or was skipped.")
+                        skipped_nodes.add(n)
+                        trace.append({"node": n, "status": NodeStatus.SKIPPED.value, "reason": "dependency failed/skipped"})
+                        self._fire_event("NODE_SKIPPED", state=state, node=n)
+                        unblocked.add(n)
+                        continue
+                        
+                # Check for completion
+                if all(dep in completed_nodes for dep in deps):
+                    unblocked.add(n)
+                    
+            blocked_nodes.difference_update(unblocked)
+            active_nodes.update(n for n in unblocked if n not in skipped_nodes)
+            
+            # Filter active nodes: only those whose dependencies are met
+            ready_to_run = set()
+            for n in active_nodes:
+                deps = self.dependencies.get(n, [])
+                if any(dep in skipped_nodes or dep in failed_nodes for dep in deps) and self.failure_policy == FailurePolicy.SKIP_DEPENDENTS:
+                    skipped_nodes.add(n)
+                    trace.append({"node": n, "status": NodeStatus.SKIPPED.value, "reason": "dependency failed/skipped"})
+                    continue
+                    
+                if all(dep in completed_nodes for dep in deps):
+                    ready_to_run.add(n)
+                else:
+                    blocked_nodes.add(n)
+                    
+            active_nodes = ready_to_run
+            
+            if not active_nodes and blocked_nodes:
+                # Potential deadlock or waiting on failure
+                if self.failure_policy == FailurePolicy.CONTINUE_INDEPENDENT:
+                    # It's not a deadlock if we are just ignoring the blocked nodes because their deps failed
+                    # Actually, if their deps failed, they should be stuck forever unless SKIP_DEPENDENTS.
+                    logger.warning(f"Nodes permanently blocked due to failure/deadlock: {blocked_nodes}")
+                    break
+                else:
+                    raise RuntimeError(f"Deadlock detected! Blocked nodes: {blocked_nodes}")
+                    
+            if not active_nodes:
+                break
+                
             next_active_nodes = set()
             
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -66,46 +137,78 @@ class ExecutionGraph:
                                 
                         trace.append({
                             "node": node_name,
-                            "status": "success",
+                            "status": NodeStatus.COMPLETED.value,
                             "latency": latency,
                             "attempts": attempts,
                             "updates": list(node_result.state_updates.keys())
                         })
                         
+                        completed_nodes.add(node_name)
+                        
                         destinations = []
+                        is_dynamic = False
                         if node_result.routing_decision:
                             destinations = node_result.routing_decision.next_nodes
+                            is_dynamic = True
                         elif node_name in self.conditional_edges:
                             destinations = self.conditional_edges[node_name](state)
+                            is_dynamic = True
                         elif node_name in self.edges:
                             destinations = [self.edges[node_name]]
                         else:
                             destinations = ["END"]
                             
                         for dest in destinations:
-                            if dest != "END":
+                            if dest != "END" and dest not in failed_nodes:
                                 next_active_nodes.add(dest)
                                 
                     except Exception as e:
                         logger.error(f"Node {node_name} failed: {e}")
+                        failed_nodes.add(node_name)
                         trace.append({
                             "node": node_name,
-                            "status": "error",
+                            "status": NodeStatus.FAILED.value,
                             "error": str(e)
                         })
-                        return GraphExecutionResult(
-                            final_state=state,
-                            trace=trace,
-                            success=False,
-                            error=f"Node {node_name} failed: {str(e)}"
-                        )
                         
-            active_nodes = list(next_active_nodes)
+                        if self.failure_policy == FailurePolicy.FAIL_FAST:
+                            self._fire_event("GRAPH_FAILED", state=state, failed_nodes=list(failed_nodes))
+                            return GraphExecutionResult(
+                                final_state=state,
+                                trace=trace,
+                                success=False,
+                                error=f"Node {node_name} failed: {str(e)}"
+                            )
+                        elif self.failure_policy == FailurePolicy.CONTINUE_INDEPENDENT:
+                            # Just don't add its destinations to next_active_nodes
+                            pass
+                        elif self.failure_policy == FailurePolicy.SKIP_DEPENDENTS:
+                            # Destinations will be added, but they will be skipped when they try to run
+                            destinations = []
+                            if node_name in self.conditional_edges:
+                                # We can't evaluate conditional edges safely on failure, so we rely on static edges
+                                if node_name in self.edges:
+                                    destinations = [self.edges[node_name]]
+                            elif node_name in self.edges:
+                                destinations = [self.edges[node_name]]
+                                
+                            for dest in destinations:
+                                if dest != "END":
+                                    next_active_nodes.add(dest)
+                        
+            active_nodes = next_active_nodes
+            
+        success = len(failed_nodes) == 0
+        if success:
+            self._fire_event("GRAPH_COMPLETED", state=state)
+        else:
+            self._fire_event("GRAPH_FAILED", state=state, failed_nodes=list(failed_nodes))
             
         return GraphExecutionResult(
             final_state=state,
             trace=trace,
-            success=True
+            success=success,
+            error=f"Failed nodes: {failed_nodes}" if not success else None
         )
         
     def _execute_node_with_retry(self, node: GraphNode, state: GraphState, max_retries: int = 3) -> tuple[NodeResult, float, int]:

@@ -26,8 +26,15 @@ class AISystemBuilder:
             cap.apply(blueprint, self.container, spec)
             
         # 3. Construct ExecutionGraph
-        graph = ExecutionGraph()
+        kwargs = {}
+        if hasattr(blueprint, "failure_policy") and blueprint.failure_policy:
+            kwargs["failure_policy"] = blueprint.failure_policy
+            
+        graph = ExecutionGraph(**kwargs)
         
+        if hasattr(blueprint, "callbacks"):
+            graph.callbacks.extend(blueprint.callbacks)
+            
         for node in blueprint.nodes:
             graph.add_node(node)
             
@@ -39,6 +46,10 @@ class AISystemBuilder:
             
         for from_node, cond_fn in blueprint.conditional_edges:
             graph.add_conditional_edge(from_node, cond_fn)
+            
+        if hasattr(blueprint, "dependencies"):
+            for node, deps in blueprint.dependencies:
+                graph.add_dependency(node, deps)
             
         # 4. Validate Graph
         try:

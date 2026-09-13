@@ -1,6 +1,21 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+from enum import Enum
+
+class FailurePolicy(str, Enum):
+    FAIL_FAST = "FAIL_FAST"
+    CONTINUE_INDEPENDENT = "CONTINUE_INDEPENDENT"
+    SKIP_DEPENDENTS = "SKIP_DEPENDENTS"
+
+class NodeStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+    CANCELLED = "CANCELLED"
+    BLOCKED = "BLOCKED"
 
 class GraphState(BaseModel):
     """Base interface for graph state. Must be a Pydantic model for validation."""
