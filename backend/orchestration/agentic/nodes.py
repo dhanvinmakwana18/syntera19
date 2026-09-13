@@ -1,12 +1,18 @@
 import json
 from typing import Dict, Any, List
+from pydantic import BaseModel, Field
+
 from core.graph.contracts import GraphNode, NodeResult, RoutingDecision
 from orchestration.agentic.state import AgentState, AgentPlan, AgentTask
 from orchestration.agentic.tools import BaseTool
 
+# We rely on IntelligenceCore for real AI capability
+from intelligence.core import IntelligenceCore
+
+
 class PlannerNode(GraphNode):
-    def __init__(self, llm_provider):
-        self.llm = llm_provider
+    def __init__(self, intelligence: IntelligenceCore):
+        self.intelligence = intelligence
         
     @property
     def name(self) -> str:
@@ -16,33 +22,30 @@ class PlannerNode(GraphNode):
         if state.iteration >= state.max_iterations:
             return NodeResult(state_updates={"error": "Max iterations reached."})
             
-        system_prompt = "You are a planner. The available tool is 'retrieve_documents'. Output JSON: {\"tasks\": [{\"id\": \"t1\", \"description\": \"...\", \"tool_name\": \"retrieve_documents\", \"tool_input\": {\"query\": \"...\"}}]}"
+        system_prompt = (
+            "You are an agentic planner. Break down the user's goal into a sequential plan.\n"
+            "The available tool is 'retrieve_documents' (inputs: 'query').\n"
+            "Formulate the tasks needed to accomplish the goal."
+        )
         prompt = f"Goal: {state.query.text}"
         
         try:
-            # We mock LLM planning parsing for stability, normally use structured output.
-            res = self.llm.generate(prompt=prompt, system_prompt=system_prompt).strip()
+            # We use the robust structured generation from IntelligenceCore
+            result = self.intelligence.structured_generate(
+                prompt=prompt,
+                schema=AgentPlan,
+                system_prompt=system_prompt,
+                max_retries=3
+            )
             
-            # Simple heuristic for safe parsing during architecture hardening phase
-            # If the LLM doesn't output JSON cleanly, default to a RAG plan.
-            tasks = [AgentTask(id="1", description="Retrieve context", tool_name="retrieve_documents", tool_input={"query": state.query.text})]
+            if not result.success:
+                return NodeResult(state_updates={"error": f"Planner failed to generate valid plan: {result.error} (Validation errors: {result.validation_errors})"})
             
-            if "{" in res and "tasks" in res:
-                try:
-                    # Very naive parsing
-                    parsed = json.loads(res[res.find("{"):res.rfind("}")+1])
-                    if "tasks" in parsed:
-                        tasks = []
-                        for t in parsed["tasks"]:
-                            tasks.append(AgentTask(id=t.get("id", "1"), description=t.get("description", ""), tool_name=t.get("tool_name", ""), tool_input=t.get("tool_input", {})))
-                except Exception:
-                    pass
-                    
-            plan = AgentPlan(tasks=tasks)
+            plan = result.data
             return NodeResult(state_updates={"plan": plan, "iteration": state.iteration + 1})
             
         except Exception as e:
-            return NodeResult(state_updates={"error": f"Planner failed: {str(e)}"})
+            return NodeResult(state_updates={"error": f"Planner encountered an exception: {str(e)}"})
 
 class DecisionNode(GraphNode):
     @property
@@ -88,27 +91,28 @@ class ToolExecutionNode(GraphNode):
         return NodeResult(state_updates={"observations": obs, "current_task_idx": state.current_task_idx + 1}, routing_decision=RoutingDecision(next_nodes=["decision"]))
 
 class CriticNode(GraphNode):
-    def __init__(self, generator):
-        self.generator = generator
+    def __init__(self, intelligence: IntelligenceCore):
+        self.intelligence = intelligence
         
     @property
     def name(self) -> str:
         return "critic"
         
     def execute(self, state: AgentState) -> NodeResult:
-        # Critic synthesizes observations into final answer
-        from core.domain import GenerationContext
-        
+        # Critic synthesizes observations into final answer using IntelligenceCore
         context_text = "\n".join([f"Observation from {o['tool']}: {o['result']}" for o in state.observations if o['status'] == "COMPLETED"])
-        sources = []
-        for o in state.observations:
-            if o.get("metadata", {}).get("sources"):
-                sources.extend(o["metadata"]["sources"])
-                
-        context = GenerationContext(text=context_text, sources=sources)
+        
+        system_prompt = (
+            "You are a synthesis critic. Use the provided context observations "
+            "to answer the user's goal accurately. Do not hallucinate outside the observations."
+        )
+        prompt = f"Goal: {state.query.text}\n\nContext:\n{context_text}"
         
         try:
-            res = self.generator.generate(state.query, context)
-            return NodeResult(state_updates={"final_answer": res.answer})
+            res = self.intelligence.generate(prompt=prompt, system_prompt=system_prompt)
+            if not res.success:
+                return NodeResult(state_updates={"error": f"Critic failed to generate answer: {res.error}"})
+                
+            return NodeResult(state_updates={"final_answer": res.content})
         except Exception as e:
-            return NodeResult(state_updates={"error": f"Critic failed: {e}"})
+            return NodeResult(state_updates={"error": f"Critic encountered an exception: {e}"})

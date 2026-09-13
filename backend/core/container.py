@@ -36,6 +36,31 @@ class ApplicationContainer:
             self._instances["reranker"] = self.registry.get_reranker(name)
         return self._instances["reranker"]
 
+    def get_intelligence(self):
+        if "intelligence" not in self._instances:
+            from intelligence.core import IntelligenceCore
+            from intelligence.router import ModelRouter
+            from intelligence.providers.hf_provider import HuggingFaceProvider
+            
+            # Since Ollama might be unstable on this CPU-only VM, we register HuggingFace as default
+            # You could also add OllamaProvider here if desired.
+            provider = HuggingFaceProvider()
+            router = ModelRouter(default_provider=provider)
+            
+            # try:
+            #     # Try to use Ollama if available
+            #     from intelligence.providers.ollama_provider import OllamaProvider
+            #     import requests
+            #     if requests.get("http://localhost:11434/api/tags", timeout=1).status_code == 200:
+            #         ollama = OllamaProvider(model="qwen3:1.7b")
+            #         router.register_provider(ollama)
+            #         router.set_default("qwen3:1.7b")
+            # except Exception:
+            #     pass
+                
+            self._instances["intelligence"] = IntelligenceCore(router)
+        return self._instances["intelligence"]
+
     def build_pipeline(self, retrieval_mode: str = "rerank", expand_neighbors: bool = False, dense_weight: float = 1.0, sparse_weight: float = 1.0) -> RetrievalPipeline:
         retrievers = []
         if retrieval_mode in ["dense", "hybrid", "rerank"]:
