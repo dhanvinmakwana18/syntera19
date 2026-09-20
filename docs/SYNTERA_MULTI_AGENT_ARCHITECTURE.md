@@ -1,33 +1,53 @@
-﻿# Syntera Phase 10: Multi-Agent Intelligence Architecture
+# Syntera Phase 10: Multi-Agent Intelligence Architecture
 
 ## 1. Vision & Core Philosophy
-Syntera fundamentally scales from single-agent generation to dynamic Multi-Agent (Swarm) systems. It utilizes the ExecutionGraph natively as an asynchronous map-reduce executor, mapping agents as nodes in a parallel execution topology.
+Syntera fundamentally scales from single-agent generation to dynamic Multi-Agent (Swarm) systems. It utilizes the ExecutionGraph natively as an asynchronous, map-reduce, and dependency-aware executor.
 
-## 2. Multi-Agent Specification
-Instead of hardcoding a swarm structure in code, users provide an AISystemSpecification with a workflow dict shaped for MultiAgentCapability. This defines:
-- A list of AgentSpecs (each containing a Name, Role, System Prompt, and specific ModelRequirement).
-- A workflow_type (e.g., sequential, parallel, custom).
-- Exact node routing via edges.
+## 2. Dynamic Topology & Dependency Barriers
+Users provide an AISystemSpecification with a workflow definition.
+- The ExecutionGraph was heavily upgraded to compute **True Dependency Barriers**.
+- If a node $ specifies dependencies $ and $, $ natively blocks in the execution loop until both $ and $ successfully complete, regardless of parallel variations in latency.
+- It safely prevents deadlock loops for acyclic Swarm workflows while retaining backwards compatibility for conditional edge routing.
 
 ## 3. The Shared Swarm State
 A Swarm runs on a unified SwarmState containing:
 - query: the user's initial objective.
-- messages: a thread-safe list of SwarmMessage objects detailing which agent said what.
-- shared_context: cross-agent dictionary memory.
+- ledger: A MessageLedger providing a strict lock-guarded thread-safe message bus for writing and retrieving SwarmMessage entities.
+- events: An operational event bus emitting Swarm lifecycle telemetry.
 - inal_answer: populated by terminal agents (e.g., Writer or Verifier).
 
-## 4. Native Parallelism & Map-Reduce
-Because the ExecutionGraph relies on ThreadPoolExecutor and uses a set-based 
-ext_active_nodes approach, it natively acts as a Barrier Synchronization mechanism for Swarm execution:
-- **Forking**: If Researcher routes to [Analyst, Verifier], the ExecutionGraph drops them both into the thread pool and awaits both futures simultaneously.
-- **Joining**: If Analyst routes to Writer and Verifier routes to Writer, ExecutionGraph naturally de-duplicates the active edge targets. Writer executes exactly once, receiving the aggregated messages state produced by both parallel predecessors.
+## 4. Agent Isolation & Tool Integration
+Every agent maps directly to a SwarmAgentNode.
+- Each agent explicitly uses its own configuration (prompt, name, role).
+- Each agent receives its own distinct subset of tools initialized via CapabilityRegistry logic.
+- Agent failures are safely caught and encapsulated inside their respective NodeResult to prevent untrapped Swarm corruption.
 
-## 5. Intelligence Core Integration & Routing
-Every SwarmAgentNode invokes the IntelligenceCore.generate() method. The IntelligenceCore consults the ModelRouter, enabling granular routing (e.g., Researcher uses a high-context retriever model, while Analyst uses a high-reasoning local model). In the local VM deployment, all agents funnel through the single thread-safe HuggingFaceProvider using the quantized 0.5B instruct model.
+## 5. Failure Policies
+The ExecutionGraph supports explicit FailurePolicy semantics:
+- **FAIL_FAST**: Any agent crash immediately aborts the Swarm.
+- **CONTINUE_INDEPENDENT**: If an agent fails, unrelated agents executing on parallel branches continue unharmed.
+- **SKIP_DEPENDENTS**: If an agent fails, down-stream dependencies natively abort, allowing non-dependent workflow segments to naturally resolve.
 
-## 6. Evaluation and Evolution
-Because the entire multi-agent swarm operates inside a standard ExecutionGraph wrapped in a GeneratedAISystem, it inherits 100% compatibility with Phase 8 Evaluation and Phase 9 Evolution. The Evolution Engine can take a single-agent system, generate a Swarm specification instead, build it, evaluate the swarm against the single-agent baseline, and promote it if metrics improve.
+## 6. Observability
+Emits strict system events:
+- SWARM.AGENT_STARTED
+- SWARM.AGENT_COMPLETED
+- SWARM.AGENT_FAILED
+- SWARM.MESSAGE_SENT
+No hidden chain-of-thought is logged, enforcing privacy by design.
 
-## 7. Limitations & Technical Debt
-- Thread-safe lists resolve immediate race conditions, but advanced Swarm logic requiring lock mechanisms (e.g., mutating shared JSON files simultaneously) is not yet supported.
-- State persistence across process bounds requires serializing the SwarmState to a database which is a future enhancement (Phase 11).
+## 7. Model Routing
+Agents route their requests securely through the IntelligenceCore. ModelRequirement specifications seamlessly proxy down into the container's ModelRouter.
+
+## 8. Evaluation and Evolution
+Swarm topologies run deterministically through the same ExecutionGraph abstraction as standard systems, guaranteeing native compatibility with the EvaluationRunner and the EvolutionEngine. The Evolution framework can organically upgrade a monolithic AI into a swarm without breaking the verification boundaries.
+
+## 9. Benchmarks & Local Hardware Realities
+When running parallel swarms (e.g., Analyst and Verifier querying local LLMs concurrently):
+- On standard VM CPU deployments utilizing HuggingFaceProvider, concurrent generation forces threads to serialize over the Global Interpreter Lock (GIL) and core saturation.
+- CPU bottlenecking prevents significant parallel time-savings. Execution time remains effectively similar to sequential runs, though the graph correctly orchestrates the execution barriers.
+- GPU acceleration has not been measured in this environment; all performance claims are strictly based on CPU metrics.
+
+## 10. Limitations & Technical Debt
+- Phase 10 has in-memory runtime state and is NOT yet durable across process/VM failure. Phase 11 will address durable execution.
+- Local tool execution currently evaluates naively in the SwarmAgentNode. Future iterations demand deeper LangGraph/ReAct cyclical reasoning if agents require multi-step tool loops *internal* to their node execution.

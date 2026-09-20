@@ -23,7 +23,15 @@ class MultiAgentCapability(BaseCapability):
         
         # Add agent nodes
         for agent_spec in swarm_spec.agents:
-            node = SwarmAgentNode(agent_spec, intelligence)
+            built_tools = []
+            for t_req in agent_spec.tools:
+                if t_req.name == "retrieval":
+                    pipe = container.build_pipeline(retrieval_mode="rerank")
+                    assembler = container.registry.get_context_assembler("default")
+                    from orchestration.agentic.tools import RAGTool
+                    built_tools.append(RAGTool(pipe, assembler))
+                    
+            node = SwarmAgentNode(agent_spec, intelligence, tools=built_tools)
             blueprint.nodes.append(node)
             
         # Add edges
@@ -36,13 +44,19 @@ class MultiAgentCapability(BaseCapability):
         elif swarm_spec.workflow_type == "custom":
             edges = swarm_spec.edges
             
-        # Group edges by from_node to natively support parallelism in ExecutionGraph
         from collections import defaultdict
-        grouped_edges = defaultdict(list)
+        grouped_edges_out = defaultdict(list)
+        grouped_edges_in = defaultdict(list)
+        
         for from_node, to_node in edges:
-            grouped_edges[from_node].append(to_node)
+            grouped_edges_out[from_node].append(to_node)
+            grouped_edges_in[to_node].append(from_node)
             
-        for from_node, to_nodes in grouped_edges.items():
+        for to_node, from_nodes in grouped_edges_in.items():
+            if to_node != "END" and len(from_nodes) > 1:
+                blueprint.dependencies.append((to_node, from_nodes))
+            
+        for from_node, to_nodes in grouped_edges_out.items():
             if len(to_nodes) == 1:
                 blueprint.edges.append((from_node, to_nodes[0]))
             else:
@@ -55,3 +69,30 @@ class MultiAgentCapability(BaseCapability):
             blueprint.entry_point = swarm_spec.entry_point
         else:
             blueprint.entry_point = swarm_spec.agents[0].name
+            
+        if swarm_spec.failure_policy:
+            from core.graph.contracts import FailurePolicy
+            try:
+                blueprint.failure_policy = FailurePolicy(swarm_spec.failure_policy)
+            except ValueError:
+                pass
+                
+        def swarm_lifecycle_observer(event_type: str, kwargs: dict):
+            state = kwargs.get("state")
+            if not state or not hasattr(state, "events"):
+                return
+                
+            from swarm.events import SwarmEvent, SwarmEventName
+            if event_type == "GRAPH_START":
+                state.events.append(SwarmEvent(event_name=SwarmEventName.START))
+            elif event_type == "GRAPH_COMPLETED":
+                state.events.append(SwarmEvent(event_name=SwarmEventName.COMPLETED))
+            elif event_type == "GRAPH_FAILED":
+                state.events.append(SwarmEvent(event_name=SwarmEventName.FAILED, metadata={"failed_nodes": kwargs.get("failed_nodes")}))
+            elif event_type == "NODE_SKIPPED":
+                state.events.append(SwarmEvent(event_name=SwarmEventName.AGENT_SKIPPED, agent_id=kwargs.get("node")))
+                
+        # Attach to blueprint or directly to the graph later. 
+        # But GraphBlueprint doesn't have callbacks yet. Let's add it.
+        blueprint.callbacks = getattr(blueprint, "callbacks", [])
+        blueprint.callbacks.append(swarm_lifecycle_observer)
