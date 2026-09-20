@@ -60,7 +60,7 @@ def test_basic_generation(intelligence):
     assert resp.success is True
     assert len(resp.content) > 0
     assert resp.latency_ms > 0
-    assert resp.model == "qwen3:1.7b"
+    assert resp.model == "Qwen/Qwen2.5-0.5B-Instruct"
     print(f"\n  Response: {resp.content[:100]}")
     print(f"  Latency: {resp.latency_ms:.0f}ms")
     print(f"  Usage: {resp.usage}")
