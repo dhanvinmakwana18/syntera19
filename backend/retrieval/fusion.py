@@ -67,11 +67,12 @@ def reciprocal_rank_fusion(dense_candidates, sparse_candidates, k=60, limit=5, d
         
     return results
 # PHASE 4: Component Registration
-from core.registry import registry
 
 def create_rrf_fusion(**kwargs) -> BaseFusionStrategy:
     return RRFFusionStrategy()
 
-registry.register_fusion('rrf', create_rrf_fusion)
 
 
+
+def register(registry):
+    registry.register_fusion('rrf', create_rrf_fusion)

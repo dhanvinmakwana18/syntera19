@@ -2,7 +2,7 @@ import pytest
 from typing import List
 from core.domain import Query, RetrievalResult, Node
 from retrieval.engine import RetrievalPipeline
-from retrieval.assembler import ContextBuilder
+from retrieval.assembler import PipelineContextAssembler
 from tests.backend.test_contracts import FakeRetriever, FakeReranker, FakeVectorStore
 from core.contracts import BaseFusionStrategy
 
@@ -110,10 +110,12 @@ def test_bm25_independent_from_qdrant():
         os.remove("test_bm25.pkl")
 
 def test_context_assembly_no_qdrant():
-    builder = ContextBuilder()
+    builder = PipelineContextAssembler()
     candidates = [
         RetrievalResult(node=Node(id="1", text="chunk 1", metadata={"source": "A", "chunk_index": 1}), score=1.0)
     ]
-    context_str, sources = builder.build(candidates)
+    result = builder.assemble(candidates)
+    context_str = result.text
+    sources = result.sources
     assert "chunk 1" in context_str
     assert len(sources) == 1

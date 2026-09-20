@@ -144,10 +144,11 @@ class LLMProvider:
 # -------------------------------------------------------------
 # PHASE 4: Component Registration
 # -------------------------------------------------------------
-from core.registry import registry
 from typing import Any
 
 def create_llm_provider() -> Any:
     return LLMProvider()
 
-registry.register_llm("default", create_llm_provider)
+
+def register(registry):
+    registry.register_llm("default", create_llm_provider)

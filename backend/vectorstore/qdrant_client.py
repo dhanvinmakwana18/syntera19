@@ -74,7 +74,6 @@ class DenseRetriever(BaseRetriever):
 
 
 
-from core.registry import registry
 
 def create_qdrant_retriever(embedding_provider: BaseEmbeddingProvider) -> BaseRetriever:
 
@@ -82,6 +81,8 @@ def create_qdrant_retriever(embedding_provider: BaseEmbeddingProvider) -> BaseRe
 
     return DenseRetriever(vector_store=vector_store, embedding_provider=embedding_provider)
 
-registry.register_retriever('qdrant', create_qdrant_retriever)
 
 
+
+def register(registry):
+    registry.register_retriever('qdrant', create_qdrant_retriever)
