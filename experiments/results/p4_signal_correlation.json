@@ -1,0 +1,15 @@
+﻿{
+    "status": "BLOCKED",
+    "decision": "REVISE",
+    "reasoning": "Lack of adequate PDF structural dataset and local CPU latency constraints. Forbade dataset fabrication.",
+    "dataset_requirements": {
+        "format": "PDFs parsed through Syntera PyMuPDF ingestion",
+        "minimum_docs": 100,
+        "minimum_queries": 500,
+        "required_metadata": ["section_path", "chunk_index", "page", "bbox"]
+    },
+    "falsification_triggered": [
+        "The dataset is too small or biased (19 chunks is insufficient).",
+        "The experiment contains leakage (the 20-query set is already evaluated/leaked)."
+    ]
+}

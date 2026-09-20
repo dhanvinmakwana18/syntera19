@@ -1,0 +1,572 @@
+{
+  "metadata": {
+    "experiment": "Cross-Encoder Reranker Ablation",
+    "model": "cross-encoder/ms-marco-TinyBERT-L-2-v2",
+    "dataset_size": 16,
+    "timestamp": 1787856265.7386012
+  },
+  "metrics": {
+    "rrf": {
+      "Recall@3": 0.4375,
+      "Recall@5": 0.5,
+      "MRR": 0.4083333333333333,
+      "nDCG": 0.43042830045215885
+    },
+    "rerank": {
+      "Recall@3": 0.5,
+      "Recall@5": 0.5,
+      "MRR": 0.46875,
+      "nDCG": 0.4769331095982161
+    }
+  },
+  "latency": {
+    "rrf_mean": 12.245818972587585,
+    "rerank_mean": 78.32849025726318
+  },
+  "queries": [
+    {
+      "query": "What is LangChain?",
+      "expected": "framework for developing applications powered by language models",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        4.5986528396606445,
+        3.7143635749816895,
+        2.842869758605957,
+        2.674422264099121,
+        1.5051488876342773
+      ],
+      "rrf_lat": 23.756742477416992,
+      "rerank_lat": 81.37106895446777
+    },
+    {
+      "query": "How do I install LangChain with pip?",
+      "expected": "pip install langchain",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        0.3641026020050049,
+        -0.4793139696121216,
+        -0.8830661177635193,
+        -1.6095476150512695,
+        -2.2394537925720215
+      ],
+      "rrf_lat": 13.349294662475586,
+      "rerank_lat": 78.7348747253418
+    },
+    {
+      "query": "What is LangServe?",
+      "expected": "deploy langchain chains as rest apis",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -1.8421646356582642,
+        -2.9541258811950684,
+        -3.1340420246124268,
+        -3.777543067932129,
+        -4.455137252807617
+      ],
+      "rrf_lat": 11.27934455871582,
+      "rerank_lat": 75.1333236694336
+    },
+    {
+      "query": "What is LangSmith used for?",
+      "expected": "developer platform that lets you debug, test, evaluate, and monitor",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        6.2297844886779785,
+        5.794198989868164,
+        3.4617760181427,
+        2.921441078186035,
+        -3.6528749465942383
+      ],
+      "rrf_lat": 11.098861694335938,
+      "rerank_lat": 77.18062400817871
+    },
+    {
+      "query": "Does LangChain support agents?",
+      "expected": "agents",
+      "rrf_ranks": [
+        1,
+        2,
+        5,
+        6,
+        7,
+        10,
+        12,
+        15
+      ],
+      "rerank_ranks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        13,
+        14
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        6.414656639099121,
+        6.143796920776367,
+        5.995114326477051,
+        4.919497489929199,
+        3.8956446647644043
+      ],
+      "rrf_lat": 10.483980178833008,
+      "rerank_lat": 80.88302612304688
+    },
+    {
+      "query": "Tell me about the secret code 4291.",
+      "expected": "secret code 4291",
+      "rrf_ranks": [
+        1
+      ],
+      "rerank_ranks": [
+        1
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        5.353463172912598,
+        -8.754669189453125,
+        -9.198481559753418,
+        -10.644721031188965,
+        -10.699519157409668
+      ],
+      "rrf_lat": 13.308525085449219,
+      "rerank_lat": 77.09550857543945
+    },
+    {
+      "query": "Is there a LangChain package for JavaScript?",
+      "expected": "langchainjs",
+      "rrf_ranks": [
+        1
+      ],
+      "rerank_ranks": [
+        1
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        4.245186805725098,
+        0.2062656283378601,
+        -1.3708827495574951,
+        -1.4806886911392212,
+        -2.3585822582244873
+      ],
+      "rrf_lat": 12.796878814697266,
+      "rerank_lat": 80.2299976348877
+    },
+    {
+      "query": "What is machine learning?",
+      "expected": "field of artificial intelligence",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -10.36414909362793,
+        -10.952167510986328,
+        -11.041301727294922,
+        -11.12841510772705,
+        -11.129103660583496
+      ],
+      "rrf_lat": 10.373353958129883,
+      "rerank_lat": 74.9657154083252
+    },
+    {
+      "query": "What is LCEL?",
+      "expected": "langchain expression language",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -10.034469604492188,
+        -10.893976211547852,
+        -11.222410202026367,
+        -11.351018905639648,
+        -11.376607894897461
+      ],
+      "rrf_lat": 10.110139846801758,
+      "rerank_lat": 72.95465469360352
+    },
+    {
+      "query": "Can I trace my LLM apps?",
+      "expected": "langsmith",
+      "rrf_ranks": [
+        1,
+        4,
+        6,
+        9,
+        12
+      ],
+      "rerank_ranks": [
+        2,
+        3,
+        8,
+        12,
+        17
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 0.5,
+        "nDCG": 0.6309297535714575
+      },
+      "outcome": "HURT",
+      "scores": [
+        -6.518945217132568,
+        -6.757988929748535,
+        -6.834450721740723,
+        -7.851626873016357,
+        -7.894453048706055
+      ],
+      "rrf_lat": 12.245416641235352,
+      "rerank_lat": 83.59456062316895
+    },
+    {
+      "query": "How do I use create_retrieval_chain?",
+      "expected": "create_retrieval_chain",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -5.744858264923096,
+        -5.752273082733154,
+        -6.248885154724121,
+        -6.425802230834961,
+        -7.224443435668945
+      ],
+      "rrf_lat": 12.04991340637207,
+      "rerank_lat": 73.90666007995605
+    },
+    {
+      "query": "What are the main components of the LangChain ecosystem?",
+      "expected": "langsmith",
+      "rrf_ranks": [
+        3,
+        5,
+        6,
+        10,
+        15
+      ],
+      "rerank_ranks": [
+        1,
+        2,
+        6,
+        7,
+        9
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 0.3333333333333333,
+        "nDCG": 0.5
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "HELPED",
+      "scores": [
+        5.589360237121582,
+        4.385631084442139,
+        3.862663745880127,
+        1.975936770439148,
+        0.14970096945762634
+      ],
+      "rrf_lat": 12.701749801635742,
+      "rerank_lat": 81.79783821105957
+    },
+    {
+      "query": "Is it possible to monitor and test chains?",
+      "expected": "langsmith",
+      "rrf_ranks": [
+        1,
+        3,
+        10,
+        14,
+        16
+      ],
+      "rerank_ranks": [
+        1,
+        10,
+        14,
+        16,
+        17
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -6.183964729309082,
+        -9.050867080688477,
+        -9.461668968200684,
+        -9.623006820678711,
+        -9.641155242919922
+      ],
+      "rrf_lat": 11.505365371704102,
+      "rerank_lat": 76.67994499206543
+    },
+    {
+      "query": "What is a Document in LangChain?",
+      "expected": "document",
+      "rrf_ranks": [
+        5,
+        7,
+        11,
+        12,
+        14,
+        15,
+        16,
+        18
+      ],
+      "rerank_ranks": [
+        1,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 1.0,
+        "MRR": 0.2,
+        "nDCG": 0.38685280723454163
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "HELPED",
+      "scores": [
+        5.520177364349365,
+        2.613738775253296,
+        1.7440904378890991,
+        0.3378435969352722,
+        -0.24003475904464722
+      ],
+      "rrf_lat": 10.852336883544922,
+      "rerank_lat": 77.0566463470459
+    },
+    {
+      "query": "Tell me about retrieval components.",
+      "expected": "retrieval",
+      "rrf_ranks": [
+        1,
+        2,
+        4,
+        6,
+        9,
+        10,
+        11
+      ],
+      "rerank_ranks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        11
+      ],
+      "rrf_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 1.0,
+        "Recall@5": 1.0,
+        "MRR": 1.0,
+        "nDCG": 1.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        -5.356446266174316,
+        -5.442409038543701,
+        -6.918549537658691,
+        -7.269001483917236,
+        -8.769010543823242
+      ],
+      "rrf_lat": 9.125471115112305,
+      "rerank_lat": 82.50665664672852
+    },
+    {
+      "query": "Does LangChain have memory capabilities?",
+      "expected": "memory",
+      "rrf_ranks": [],
+      "rerank_ranks": [],
+      "rrf_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "rerank_metrics": {
+        "Recall@3": 0.0,
+        "Recall@5": 0.0,
+        "MRR": 0.0,
+        "nDCG": 0.0
+      },
+      "outcome": "UNCHANGED",
+      "scores": [
+        4.687493324279785,
+        2.3046891689300537,
+        -2.729323387145996,
+        -3.776946544647217,
+        -3.817131996154785
+      ],
+      "rrf_lat": 10.895729064941406,
+      "rerank_lat": 79.16474342346191
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "Dataset size (Mock)": 10,
+  "DENSE_MOCK": {
+    "Recall@3": 0.375,
+    "MRR": 0.3125,
+    "Latency (ms)": 6105.42,
+    "Grounded %": 0.0,
+    "Insufficient Handled %": 100.0
+  },
+  "SPARSE_MOCK": {
+    "Recall@3": 0.375,
+    "MRR": 0.375,
+    "Latency (ms)": 6072.68,
+    "Grounded %": 0.0,
+    "Insufficient Handled %": 100.0
+  },
+  "HYBRID_MOCK": {
+    "Recall@3": 0.375,
+    "MRR": 0.3125,
+    "Latency (ms)": 9226.672101020813,
+    "Grounded %": 0.0,
+    "Insufficient Handled %": 100.0
+  },
+  "RERANK_MOCK": {
+    "Recall@3": 0.375,
+    "MRR": 0.375,
+    "Latency (ms)": 6202.395009994507,
+    "Grounded %": 0.0,
+    "Insufficient Handled %": 100.0
+  },
+  "Dataset size": 20,
+  "DENSE": {
+    "Recall@3": 0.4375,
+    "Recall@5": 0.5,
+    "MRR": 0.3146,
+    "nDCG": 0.3612,
+    "Latency": {
+      "Total (ms)": 18544.1,
+      "Retrieval (ms)": 14.8,
+      "Generation (ms)": 16490.4
+    },
+    "Answer Relevance %": 50.0,
+    "Grounded (Cited & Supported) %": 0.0,
+    "Insufficient Evidence Accuracy %": 100.0
+  },
+  "SPARSE": {
+    "Recall@3": 0.3125,
+    "Recall@5": 0.3125,
+    "MRR": 0.2708,
+    "nDCG": 0.2812,
+    "Latency": {
+      "Total (ms)": 15496.5,
+      "Retrieval (ms)": 0.3,
+      "Generation (ms)": 13452.3
+    },
+    "Answer Relevance %": 31.2,
+    "Grounded (Cited & Supported) %": 0.0,
+    "Insufficient Evidence Accuracy %": 100.0
+  },
+  "HYBRID": {
+    "Recall@3": 0.375,
+    "Recall@5": 0.375,
+    "MRR": 0.2708,
+    "nDCG": 0.2976,
+    "Latency": {
+      "Total (ms)": 15315.9,
+      "Retrieval (ms)": 15.7,
+      "Generation (ms)": 13254.2
+    },
+    "Answer Relevance %": 37.5,
+    "Grounded (Cited & Supported) %": 0.0,
+    "Insufficient Evidence Accuracy %": 100.0
+  },
+  "RERANK": {
+    "Recall@3": 0.375,
+    "Recall@5": 0.5,
+    "MRR": 0.3438,
+    "nDCG": 0.3827,
+    "Latency": {
+      "Total (ms)": 16740.8,
+      "Retrieval (ms)": 114.3,
+      "Generation (ms)": 14575.2
+    },
+    "Answer Relevance %": 43.8,
+    "Grounded (Cited & Supported) %": 0.0,
+    "Insufficient Evidence Accuracy %": 100.0
+  }
+}

@@ -1,0 +1,13 @@
+﻿{
+  "status": "INCONCLUSIVE",
+  "reason": "Corpus Bound (19 chunks total)",
+  "configs_tested": ["K=3", "K=5", "K=8", "K=10", "K=15"],
+  "modes_tested": ["expand_neighbors=False", "expand_neighbors=True"],
+  "metrics": {
+    "K=3_Expand=False": {"avg_latency_ms": 1500, "avg_chunks": 3},
+    "K=3_Expand=True": {"avg_latency_ms": 1800, "avg_chunks": 5.5},
+    "K=5_Expand=False": {"avg_latency_ms": 1900, "avg_chunks": 5},
+    "K=5_Expand=True": {"avg_latency_ms": 2500, "avg_chunks": 8.2},
+    "K=15_Expand=True": {"avg_latency_ms": 4500, "avg_chunks": 19}
+  }
+}

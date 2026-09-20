@@ -1,0 +1,78 @@
+[
+  {
+    "id": "eval_001",
+    "type": "simple_factual",
+    "query": "What is the primary retrieval mechanism in Syntera?",
+    "evidence": [
+      {"id": "chunk_01", "text": "Syntera utilizes Qdrant for dense vector retrieval combined with BM25 for sparse retrieval, fused via Reciprocal Rank Fusion (RRF)."}
+    ],
+    "expected_decomposition": [{"id": "q1", "query": "Syntera primary retrieval mechanism", "purpose": "Find core RAG components"}],
+    "expected_evaluator": {
+      "sufficient": true,
+      "missing_information": [],
+      "follow_up_queries": []
+    }
+  },
+  {
+    "id": "eval_002",
+    "type": "multi_hop",
+    "query": "Compare the performance of TinyBERT reranking against the fallback Qwen model's latency.",
+    "evidence": [
+      {"id": "chunk_02", "text": "TinyBERT reranking adds approximately 40ms of latency per 10 chunks."}
+    ],
+    "expected_decomposition": [
+      {"id": "q1", "query": "TinyBERT reranking latency", "purpose": "Find TinyBERT performance"},
+      {"id": "q2", "query": "Qwen fallback model latency", "purpose": "Find Qwen performance"}
+    ],
+    "expected_evaluator": {
+      "sufficient": false,
+      "missing_information": ["Qwen fallback model latency"],
+      "follow_up_queries": [
+        {"id": "q3", "query": "Qwen fallback model latency performance", "purpose": "Find missing latency metric for Qwen"}
+      ]
+    }
+  },
+  {
+    "id": "eval_003",
+    "type": "contradiction_resolution",
+    "query": "Is LangChain used for Syntera's agentic workflow?",
+    "evidence": [
+      {"id": "chunk_03", "text": "Syntera uses LangChain to wrap the LLM agent."},
+      {"id": "chunk_04", "text": "UPDATE: LangChain was entirely removed due to latency. We now use a native Python state machine for the agentic workflow."}
+    ],
+    "expected_decomposition": [{"id": "q1", "query": "LangChain usage in Syntera agentic workflow", "purpose": "Determine LangChain status"}],
+    "expected_evaluator": {
+      "sufficient": true,
+      "missing_information": [],
+      "follow_up_queries": []
+    }
+  },
+  {
+    "id": "eval_004",
+    "type": "insufficient_evidence",
+    "query": "What are the Q3 operating margins for Syntera Corp?",
+    "evidence": [
+      {"id": "chunk_05", "text": "Syntera Corp reported strong revenue growth in Q2 and Q3."}
+    ],
+    "expected_decomposition": [{"id": "q1", "query": "Syntera Corp Q3 operating margins", "purpose": "Find Q3 financials"}],
+    "expected_evaluator": {
+      "sufficient": false,
+      "missing_information": ["Specific Q3 operating margin figures (percentages or absolute values)"],
+      "follow_up_queries": [
+        {"id": "q2", "query": "Syntera Corp Q3 operating margin percentage", "purpose": "Find exact margin figures"}
+      ]
+    }
+  },
+  {
+    "id": "eval_005",
+    "type": "ambiguous_query",
+    "query": "How does the pipeline handle it?",
+    "evidence": [],
+    "expected_decomposition": [{"id": "q1", "query": "Syntera pipeline data handling", "purpose": "Clarify generic pipeline request"}],
+    "expected_evaluator": {
+      "sufficient": false,
+      "missing_information": ["The pronoun 'it' is unresolved. Need to know what the pipeline is handling."],
+      "follow_up_queries": []
+    }
+  }
+]
