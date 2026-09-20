@@ -1,5 +1,5 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -36,9 +36,7 @@ class Settings(BaseSettings):
     DENSE_WEIGHT: float = 1.0
     SPARSE_WEIGHT: float = 1.0
     
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
 

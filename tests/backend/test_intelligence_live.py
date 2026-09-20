@@ -34,16 +34,16 @@ skip_no_ollama = pytest.mark.skip(reason="Switched to HF fallback for reliabilit
 
 from intelligence.providers.hf_provider import HuggingFaceProvider
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def provider():
     # Use HF provider for live tests to guarantee execution on CPU VM
     return HuggingFaceProvider()
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def router(provider):
     return ModelRouter(default_provider=provider)
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def intelligence(router):
     return IntelligenceCore(router)
 

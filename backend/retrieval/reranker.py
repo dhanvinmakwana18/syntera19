@@ -4,30 +4,38 @@ from core.domain import Query, RetrievalResult
 from typing import List
 import copy
 
+import threading
+
 class CrossEncoderReranker(BaseReranker):
     def __init__(self, model_name: str = "cross-encoder/ms-marco-TinyBERT-L-2-v2"):
         self.model_name = model_name
         self.model = None
         self.load_failed = False
-        self._initialize_model()
+        self._lock = threading.Lock()
 
-    def _initialize_model(self):
-        try:
-            self.model = CrossEncoder(self.model_name)
-        except Exception as e:
-            print(f"Warning: Failed to load reranker {self.model_name}. Reranking will be disabled. Error: {e}")
-            self.model = None
-            self.load_failed = True
+    def _get_model(self):
+        if self.model is None and not self.load_failed:
+            with self._lock:
+                if self.model is None and not self.load_failed:
+                    try:
+                        from sentence_transformers import CrossEncoder
+                        self.model = CrossEncoder(self.model_name)
+                    except Exception as e:
+                        print(f"Warning: Failed to load reranker {self.model_name}. Reranking will be disabled. Error: {e}")
+                        self.model = None
+                        self.load_failed = True
+        return self.model
 
     def rerank(self, query: Query, candidates: List[RetrievalResult], limit: int = 5) -> List[RetrievalResult]:
         if not candidates:
             return []
             
-        if self.model is None:
+        model = self._get_model()
+        if model is None:
             return candidates[:limit]
             
         pairs = [[query.text, doc.node.text] for doc in candidates]
-        scores = self.model.predict(pairs)
+        scores = model.predict(pairs)
         
         results = []
         for doc, score in zip(candidates, scores):
@@ -51,14 +59,15 @@ class RerankerService:
         if not candidates:
             return []
             
-        if self._reranker.model is None:
+        model = self._reranker._get_model()
+        if model is None:
             # Fallback for legacy format
             for c in candidates:
                 c["rerank_score"] = c.get("rrf_score", c.get("score", 0.0))
             return candidates[:limit]
             
         pairs = [[query, doc["payload"]["text"]] for doc in candidates]
-        scores = self._reranker.model.predict(pairs)
+        scores = model.predict(pairs)
         
         for idx, score in enumerate(scores):
             candidates[idx]["rerank_score"] = float(score)

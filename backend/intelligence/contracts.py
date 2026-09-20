@@ -6,7 +6,7 @@ Provider-agnostic. No SDK references.
 """
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 
@@ -60,8 +60,7 @@ class StructuredGenerationResult(BaseModel):
     error: Optional[str] = None
     latency_ms: float = 0.0
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class ModelCapability(str, Enum):

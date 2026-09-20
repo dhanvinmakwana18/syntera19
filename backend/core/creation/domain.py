@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class SystemIdentity(BaseModel):
     id: str
@@ -61,5 +61,4 @@ class GeneratedAISystem(BaseModel):
     config: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)

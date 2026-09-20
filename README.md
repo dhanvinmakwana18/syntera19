@@ -1,4 +1,4 @@
-﻿# Syntera
+# Syntera
 
 Autonomous Agentic RAG & Multi-Modal AI Engine
 
@@ -36,6 +36,8 @@ Final Answer + Sources + Observability Trace
 - **Grounding & Citations**: Explicit source preservation and citation verification. Output includes `grounded: true/false` status.
 - **Agentic Workflow**: A routing system that chooses between tools (RAG, Direct LLM, Vision).
 - **Execution Trace**: Every query generates a detailed observability trace outlining exact backend operations, latency, and routing decisions.
+- **Evolution Engine (Phase 9)**: Generates and evaluates self-improving AI blueprints dynamically via a strictly typed Intelligence core.
+- **Hardened Multi-Agent Swarm (Phase 10)**: A fault-tolerant `ExecutionGraph` extension supporting concurrent autonomous agents, shared Message Ledgers, and resilient failure policies (`FAIL_FAST`, `CONTINUE_INDEPENDENT`).
 - **Structured Health Monitoring**: Comprehensive `/health` endpoint tracking the status of LLM, Vector Store, Embeddings, and Reranking components.
 
 ## 5. Tech Stack
@@ -93,6 +95,6 @@ We conducted an end-to-end evaluation using a synthetic 10-query dataset coverin
 - **Local Qdrant Test Lock**: Fixed by adding an in-memory test isolation mode (`TESTING=True`).
 - **Grounding Limitation**: Currently, grounding primarily checks for the *existence* of citations (`[Source X]`) matched to retrieved chunks (lexical verification). True semantic entailment verification (checking if the cited claim matches the source) is skipped to optimize latency, but traces are clearly marked as `CITED` rather than `GROUNDED` to reflect this.
 - **Small Evaluation Dataset**: The current eval dataset is small and optimized for smoke testing the pipeline structure.
-- **Implemented**: Advanced Hybrid RAG, Cross-Encoder Reranking, Direct Generation, Document Ingestion, Qdrant + BM25 Stores, Agentic Routing, Observability Traces.
+- **Implemented**: Advanced Hybrid RAG, Cross-Encoder Reranking, Direct Generation, Document Ingestion, Qdrant + BM25 Stores, Agentic Routing, Observability Traces, AI Evolution Engine, Hardened Multi-Agent Swarm.
 - **Planned**: Advanced Multi-Modal execution (Llava integration).
 

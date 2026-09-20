@@ -2,7 +2,7 @@ import uuid
 import time
 import threading
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from core.graph.contracts import GraphState
 from core.domain import Query
 from core.creation.domain import ModelRequirement, ToolRequirement
@@ -48,8 +48,7 @@ class SwarmState(GraphState):
     final_answer: Optional[str] = None
     error: Optional[str] = None
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     
     # For backward compatibility during migration
     @property

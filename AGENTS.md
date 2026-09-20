@@ -976,3 +976,14 @@ KEEP THE BASELINE.
 When evidence supports an improvement:
 
 IMPLEMENT IT CAREFULLY.
+
+# 38. THE HARDENED MULTI-AGENT RUNTIME (SWARM)
+
+**What is it?**
+A robust, graph-based multi-agent framework (introduced in Phases 9/10) built on top of the ExecutionGraph. It includes SwarmAgentNode, FailurePolicy (FAIL_FAST, CONTINUE_INDEPENDENT, SKIP_DEPENDENTS), a thread-safe MessageLedger, and granular SwarmEventName observability hooks.
+
+**Why does it exist?**
+Linear RAG pipelines are fragile; a single API timeout or hallucination crashes the entire request. We needed a resilient, fault-tolerant execution model. By decoupling agents into graph nodes with explicit dependency mapping, if one agent fails (e.g., the web researcher), independent branches (e.g., the vector database researcher) can still execute successfully while dependent branches (e.g., the writer) safely skip.
+
+**What is it for?**
+It orchestrates complex, self-correcting RAG verification loops and concurrent agent execution. It allows Syntera to confidently dispatch multiple specialist agents to retrieve and reason over data, gracefully handling partial failures to guarantee the system returns an evidence-grounded response rather than a fatal error.

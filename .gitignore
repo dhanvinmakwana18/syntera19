@@ -30,3 +30,6 @@ dist/
 # SQLite
 *.sqlite
 *.db
+
+# BM25 Root Index
+bm25_index.pkl

@@ -23,12 +23,15 @@ from intelligence.contracts import (
 logger = logging.getLogger(__name__)
 
 
+import threading
+
 class HuggingFaceProvider(BaseIntelligenceProvider):
     """Intelligence provider backed by local HuggingFace transformers."""
 
     def __init__(self, model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"):
         self.model_name = model_name
         self._pipeline = None
+        self._lock = threading.Lock()
         self._profile = ModelProfile(
             name=model_name,
             provider="huggingface",
@@ -41,20 +44,22 @@ class HuggingFaceProvider(BaseIntelligenceProvider):
 
     def _load_pipeline(self):
         if self._pipeline is None:
-            logger.info(f"Loading local HuggingFace model: {self.model_name}")
-            from transformers import pipeline
-            import torch
-            
-            # Use CPU for stability if CUDA is not available
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-            
-            self._pipeline = pipeline(
-                "text-generation",
-                model=self.model_name,
-                device=device,
-                torch_dtype=dtype,
-            )
+            with self._lock:
+                if self._pipeline is None:
+                    logger.info(f"Loading local HuggingFace model: {self.model_name}")
+                    from transformers import pipeline
+                    import torch
+
+                    # Use CPU for stability if CUDA is not available
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+                    self._pipeline = pipeline(
+                        "text-generation",
+                        model=self.model_name,
+                        device=device,
+                        torch_dtype=dtype,
+                    )
         return self._pipeline
 
     @property
@@ -65,25 +70,25 @@ class HuggingFaceProvider(BaseIntelligenceProvider):
         start = time.time()
         try:
             pipe = self._load_pipeline()
-            
+
             messages = []
             if request.system_prompt:
                 messages.append({"role": "system", "content": request.system_prompt})
             messages.append({"role": "user", "content": request.prompt})
-            
+
             # Limit max tokens for small local models to avoid OOM
             max_new_tokens = min(request.max_tokens, 512)
-            
+
             outputs = pipe(
                 messages,
                 max_new_tokens=max_new_tokens,
                 temperature=request.temperature,
                 do_sample=request.temperature > 0,
             )
-            
+
             content = outputs[0]["generated_text"][-1]["content"]
             latency = (time.time() - start) * 1000
-            
+
             return IntelligenceResponse(
                 content=content.strip(),
                 model=self.model_name,
@@ -138,9 +143,9 @@ class HuggingFaceProvider(BaseIntelligenceProvider):
                     temperature=request.temperature,
                     do_sample=request.temperature > 0,
                 )
-                
+
                 raw_content = outputs[0]["generated_text"][-1]["content"]
-                
+
                 # Try to extract JSON from response
                 start_idx = raw_content.find("{")
                 end_idx = raw_content.rfind("}") + 1
@@ -171,7 +176,7 @@ class HuggingFaceProvider(BaseIntelligenceProvider):
                 except ValidationError as ve:
                     validation_errors.append(f"Attempt {attempt}: Schema validation failed: {str(ve)}")
                     continue
-                    
+
             except Exception as e:
                 validation_errors.append(f"Attempt {attempt}: Request failed: {str(e)}")
                 continue

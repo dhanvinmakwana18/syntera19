@@ -1,34 +1,37 @@
-﻿import pytest
-from ingestion.parser import parse_pdf, chunk_text, update_heading_stack, format_section_path
+import pytest
+from backend.retrieval.chunking import StructureAwareChunker
 
 def test_heading_propagation():
+    chunker = StructureAwareChunker()
     stack = []
-    stack = update_heading_stack(stack, "# Main Title")
-    assert format_section_path(stack) == "Main Title"
+    stack = chunker._update_heading_stack(stack, "# Main Title")
+    assert chunker._format_section_path(stack) == "Main Title"
     
-    stack = update_heading_stack(stack, "## Subtitle")
-    assert format_section_path(stack) == "Main Title > Subtitle"
+    stack = chunker._update_heading_stack(stack, "## Subtitle")
+    assert chunker._format_section_path(stack) == "Main Title > Subtitle"
     
-    stack = update_heading_stack(stack, "# New Title")
-    assert format_section_path(stack) == "New Title"
+    stack = chunker._update_heading_stack(stack, "# New Title")
+    assert chunker._format_section_path(stack) == "New Title"
 
 def test_chunk_text_basic():
+    chunker = StructureAwareChunker(chunk_size=1000, overlap=200)
     text = "A" * 1500
-    chunks = chunk_text(text, chunk_size=1000, overlap=200)
+    chunks = chunker.chunk(text, {})
     assert len(chunks) == 2
-    assert len(chunks[0]) == 1000
+    assert len(chunks[0]["text"]) == 1000
     # overlap logic ensures next chunk has previous overlap
-    assert len(chunks[1]) <= 1200 
+    assert len(chunks[1]["text"]) <= 1200 
 
 def test_chunk_text_small():
+    chunker = StructureAwareChunker(chunk_size=1000, overlap=200)
     text = "Short text"
-    chunks = chunk_text(text, chunk_size=1000, overlap=200)
+    chunks = chunker.chunk(text, {})
     assert len(chunks) == 1
-    assert chunks[0] == "Short text"
+    assert chunks[0]["text"] == "Short text"
 
 import pytest
 import os
-from ingestion.parser import parse_pdf, ingest_document
+from backend.ingestion.parser import parse_pdf, ingest_document
 
 def test_parse_pdf_extracts_blocks():
     pdf_path = os.path.join("..", "data", "documents", "NexusLLM_RAG_Upgrade_and_AI-V_AI-D_Postponement_Plan.pdf")
