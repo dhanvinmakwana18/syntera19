@@ -47,8 +47,24 @@ class ChatCapability(BaseCapability):
         return []
         
     def apply(self, blueprint: GraphBlueprint, container: Any, spec: AISystemSpecification) -> None:
-        llm = container.get_llm()
-        generator = container.registry.get_generator("standard", llm_provider=llm)
+        intelligence = container.get_intelligence()
+        
+        from core.contracts import BaseGenerator
+        from core.domain import Query, GenerationContext, GenerationResult
+        
+        class IntelligenceGeneratorAdapter(BaseGenerator):
+            def __init__(self, core):
+                self.core = core
+                
+            def generate(self, query: Query, context: GenerationContext) -> GenerationResult:
+                ctx_text = "\n".join(context.texts) if context else ""
+                prompt = f"Context:\n{ctx_text}\n\nQuestion: {query.text}"
+                res = self.core.generate(prompt, system_prompt="Answer the question using ONLY the provided context.")
+                return GenerationResult(answer=res.content)
+                
+        generator = IntelligenceGeneratorAdapter(intelligence)
+        
+        from orchestration.nodes.basic_nodes import GenerateNode
         g_node = GenerateNode(generator)
         blueprint.nodes.append(g_node)
         
@@ -97,8 +113,8 @@ class PlanningCapability(BaseCapability):
         from orchestration.agentic.nodes import PlannerNode, DecisionNode, ToolExecutionNode, CriticNode
         from orchestration.agentic.tools import RAGTool
         
-        llm = container.get_llm()
-        planner = PlannerNode(llm)
+        intelligence = container.get_intelligence()
+        planner = PlannerNode(intelligence)
         decision = DecisionNode()
         
         # Build tools
@@ -110,8 +126,7 @@ class PlanningCapability(BaseCapability):
             tools.append(RAGTool(pipe, assembler))
             
         tool_exec = ToolExecutionNode(tools=tools)
-        generator = container.registry.get_generator("standard", llm_provider=llm)
-        critic = CriticNode(generator)
+        critic = CriticNode(intelligence)
         
         blueprint.nodes.extend([planner, decision, tool_exec, critic])
         
