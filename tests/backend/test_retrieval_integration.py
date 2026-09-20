@@ -1,12 +1,16 @@
 import pytest
-from retrieval.pipeline import retrieve_documents
-from vectorstore.qdrant_client import vector_store
-from vectorstore.bm25_store import bm25_store
+from core.container import build_container
+from core.domain import Query
+from retrieval.assembler import ContextBuilder
 import time
 import uuid
 
 def test_full_retrieval_pipeline():
-    # Setup dummy data in Qdrant and BM25 directly to bypass LLM and FastAPI
+    container = build_container()
+    dense_retriever = container.get_vector_store()
+    vector_store = dense_retriever.vector_store
+    bm25_store = container.get_bm25_store()
+    
     texts = [
         "The quick brown fox jumps over the lazy dog.",
         "Machine learning is a field of artificial intelligence.",
@@ -19,12 +23,22 @@ def test_full_retrieval_pipeline():
     ]
     
     # Ingest
-    doc_ids = vector_store.add_texts(texts, metadatas)
+    import uuid
+    doc_ids = [str(uuid.uuid4()) for _ in texts]
+    from providers.embeddings import EmbeddingProvider
+    emb = EmbeddingProvider()
+    vectors = emb.embed_texts(texts)
+    payloads = [{"text": t, **m} for t, m in zip(texts, metadatas)]
+    vector_store.add_points(vectors=vectors, payloads=payloads, ids=doc_ids)
+    
+    # For BM25, we use the legacy `add_texts` or update the API
     bm25_store.add_texts(texts, metadatas, doc_ids)
     
     # Test Retrieval
     start = time.time()
-    context, sources = retrieve_documents("What enhances LLM context?", limit=2)
+    pipeline = container.build_pipeline(retrieval_mode="hybrid")
+    result = pipeline.run(Query(text="What enhances LLM context?"), limit=2)
+    context, sources = ContextBuilder().build(result.candidates)
     latency = time.time() - start
     
     print(f"Retrieval Latency: {latency:.4f}s")
@@ -32,7 +46,6 @@ def test_full_retrieval_pipeline():
     assert len(sources) > 0
     assert "Retrieval augmented generation" in context
     
-    # Cleanup (Optional, since Qdrant is persistent, we might just leave or delete)
     vector_store.client.delete(
         collection_name=vector_store.collection_name,
         points_selector=doc_ids

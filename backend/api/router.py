@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from typing import List, Optional, Any
 import time
@@ -12,6 +12,8 @@ class QueryRequest(BaseModel):
     retrieval_mode: str = "rerank"  # dense, sparse, hybrid, rerank
     context_limit: int = 5
     expand_neighbors: bool = False
+    dense_weight: float = 1.0
+    sparse_weight: float = 1.0
 
 class SourceInfo(BaseModel):
     id: Any = None
@@ -28,11 +30,10 @@ class QueryResponse(BaseModel):
     grounded: bool = False
     routing_mode: str = "auto"
 
-from providers.llm import llm_provider
 from orchestration.router import route_query
 
 @api_router.post("/chat", response_model=QueryResponse)
-async def chat_endpoint(request: QueryRequest):
+async def chat_endpoint(request: QueryRequest, http_request: Request):
     start_time = time.time()
     run_id = str(uuid.uuid4())
     trace = []
@@ -47,9 +48,10 @@ async def chat_endpoint(request: QueryRequest):
     
     # 1. ROUTING
     route_start = time.time()
-    if request.mode == "auto":
+    resolved_mode = request.mode.upper()
+    if resolved_mode == "AUTO":
         try:
-            resolved_mode = route_query(request.query)
+            resolved_mode = route_query(request.query, container=http_request.app.state.container)
             add_trace("ROUTER", f"Auto-resolved to: {resolved_mode}", (time.time() - route_start) * 1000)
         except Exception as e:
             resolved_mode = "DIRECT"
@@ -63,13 +65,16 @@ async def chat_endpoint(request: QueryRequest):
     supported = False
     answer = ""
     
+    container = http_request.app.state.container
+    
     # 2. EXECUTE based on resolved mode
     if resolved_mode == "DIRECT":
         # Direct LLM call — no retrieval
         gen_start = time.time()
         try:
             system_prompt = "You are Syntera, an advanced AI assistant. Answer the user's question directly and concisely."
-            answer = llm_provider.generate(prompt=request.query, system_prompt=system_prompt)
+            llm = container.get_llm()
+            answer = llm.generate(prompt=request.query, system_prompt=system_prompt)
             add_trace("LLM_GENERATION", f"Direct response generated", (time.time() - gen_start) * 1000)
             cited = False  # No retrieval = not cited
             supported = False
@@ -79,23 +84,28 @@ async def chat_endpoint(request: QueryRequest):
     
     elif resolved_mode == "RAG":
         # Full RAG pipeline
-        from retrieval.pipeline import retrieve_documents
+        from core.domain import Query
         
         ret_start = time.time()
         try:
-            context, source_docs = retrieve_documents(request.query, limit=request.context_limit, retrieval_mode=request.retrieval_mode, expand_neighbors=request.expand_neighbors)
-            ret_latency = (time.time() - ret_start) * 1000
-            add_trace("RETRIEVAL", f"Retrieved {len(source_docs)} chunks via {request.retrieval_mode}", ret_latency)
+            pipeline = container.build_pipeline(
+                retrieval_mode=request.retrieval_mode,
+                expand_neighbors=request.expand_neighbors,
+                dense_weight=request.dense_weight,
+                sparse_weight=request.sparse_weight
+            )
+            result = pipeline.run(Query(text=request.query), limit=request.context_limit)
             
-            sources = []
-            for res in source_docs:
-                sources.append({
-                    "id": res.get("id"),
-                    "filename": res.get("filename", "Unknown"),
-                    "page": res.get("page", "?"),
-                    "text": res.get("text", "")[:200] + "..." if len(res.get("text", "")) > 200 else res.get("text", ""),
-                    "score": res.get("score", 0), "section": res.get("section", "Unknown"), "is_expanded": res.get("is_expanded", False), "chunk_index": res.get("chunk_index", -1), "block_type": res.get("block_type", "text"), "bbox": res.get("bbox", None)
-                })
+            # Format context
+            from retrieval.assembler import ContextBuilder
+            context, sources = ContextBuilder().build(result.candidates)
+            
+            ret_latency = (time.time() - ret_start) * 1000
+            add_trace("RETRIEVAL", f"Retrieved {len(sources)} chunks via {request.retrieval_mode}", ret_latency)
+            
+            # Merge pipeline trace
+            for step_trace in result.trace:
+                add_trace(f"PIPELINE.{step_trace.get('stage', 'step')}", step_trace.get('retriever', step_trace.get('strategy', 'stage')), step_trace.get('latency', 0.0) * 1000)
             
             add_trace("CONTEXT_ASSEMBLY", f"Assembled context from {len(sources)} deduplicated chunks")
             
@@ -112,13 +122,14 @@ async def chat_endpoint(request: QueryRequest):
                     "Always cite your sources using [Source X] notation. NEVER fabricate a source."
                 )
                 prompt = f"Context:\n{context}\n\nQuery: {request.query}"
-                raw_answer = llm_provider.generate(prompt=prompt, system_prompt=system_prompt)
+                llm = container.get_llm()
+                raw_answer = llm.generate(prompt=prompt, system_prompt=system_prompt)
                 gen_latency = (time.time() - gen_start) * 1000
                 add_trace("LLM_GENERATION", f"Generated response", gen_latency)
                 
                 # Citation verification
                 from verification.grounding import validate_citations, evaluate_support
-                answer = validate_citations(raw_answer, source_docs)
+                answer = validate_citations(raw_answer, sources)
                 
                 # Check if the model refused to answer
                 refusal_phrases = ["cannot find the answer", "no relevant information", "not in the provided documents"]
@@ -146,7 +157,7 @@ async def chat_endpoint(request: QueryRequest):
         
         agent_start = time.time()
         try:
-            state, source_docs = execute_agent(request.query)
+            state, source_docs = execute_agent(request.query, container=container)
             agent_latency = (time.time() - agent_start) * 1000
             answer = state.response
             
@@ -177,7 +188,7 @@ async def chat_endpoint(request: QueryRequest):
         
         ieg_start = time.time()
         try:
-            ieg_state = run_ieg(request.query)
+            ieg_state = run_ieg(request.query, container=container)
             ieg_latency = (time.time() - ieg_start) * 1000
             
             # Transfer answer and format sources
@@ -207,7 +218,8 @@ async def chat_endpoint(request: QueryRequest):
     else:
         # Fallback to DIRECT
         try:
-            answer = llm_provider.generate(prompt=request.query, system_prompt="You are Syntera, an advanced AI assistant.")
+            llm = container.get_llm()
+            answer = llm.generate(prompt=request.query, system_prompt="You are Syntera, an advanced AI assistant.")
             add_trace("LLM_GENERATION", "Fallback direct generation")
         except Exception as e:
             answer = f"Error: {e}"
@@ -229,10 +241,15 @@ async def chat_endpoint(request: QueryRequest):
     )
 
 @api_router.get("/status")
-def system_status():
-    from vectorstore.qdrant_client import vector_store
+def system_status(request: Request):
+    container = getattr(request.app.state, "container", None)
+    if not container:
+        return {"status": "INITIALIZING", "indexed_documents": 0}
+        
     try:
-        info = vector_store.client.get_collection(vector_store.collection_name)
+        dense = container.get_vector_store()
+        v_store = dense.vector_store
+        info = v_store.client.get_collection(v_store.collection_name)
         count = info.vectors_count
     except:
         count = 0

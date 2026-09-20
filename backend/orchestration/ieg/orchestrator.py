@@ -6,8 +6,6 @@ from typing import List, Dict, Any
 from pydantic import ValidationError
 
 from orchestration.ieg.schemas import SubQuery, QueryDecomposition, EvidenceEvaluation
-from providers.llm import llm_provider
-from retrieval.pipeline import retrieve_documents
 from verification.grounding import validate_citations
 
 class IEGState:
@@ -38,7 +36,7 @@ def _parse_json_safe(text: str) -> dict:
         text = text[:-3]
     return json.loads(text.strip())
 
-def decompose_query(state: IEGState) -> QueryDecomposition:
+def decompose_query(state: IEGState, container=None) -> QueryDecomposition:
     state.add_trace("DECOMPOSER", "Starting query decomposition...")
     system_prompt = (
         "You are an expert research planner. Decompose the user's complex question into targeted subqueries for a vector database.\n"
@@ -56,9 +54,10 @@ def decompose_query(state: IEGState) -> QueryDecomposition:
     )
     
     # Retry loop for invalid JSON
+    llm = container.get_llm()
     for attempt in range(3):
         try:
-            raw_output = llm_provider.generate(
+            raw_output = llm.generate(
                 state.original_query, 
                 system_prompt=system_prompt, 
                 json_mode=True, 
@@ -78,12 +77,16 @@ def decompose_query(state: IEGState) -> QueryDecomposition:
                 state.subqueries.extend(decomp.subqueries)
                 return decomp
 
-def retrieve_parallel(state: IEGState, queries_to_run: List[SubQuery]):
+def retrieve_parallel(state: IEGState, queries_to_run: List[SubQuery], container=None):
     state.add_trace("RETRIEVAL", f"Starting parallel retrieval for {len(queries_to_run)} subqueries...")
     
     def fetch(sq: SubQuery):
-        context, source_docs = retrieve_documents(sq.query, limit=3)
-        return sq, source_docs
+        from core.domain import Query
+        from retrieval.assembler import ContextBuilder
+        pipeline = container.build_pipeline(retrieval_mode="rerank")
+        result = pipeline.run(Query(text=sq.query), limit=3)
+        context_str, sources = ContextBuilder().build(result.candidates)
+        return sq, sources
 
     results = []
     # Execute retrieval concurrently
@@ -110,7 +113,7 @@ def retrieve_parallel(state: IEGState, queries_to_run: List[SubQuery]):
                 
     state.add_trace("RETRIEVAL", f"Collected {new_evidence_count} new unique evidence chunks.")
 
-def evaluate_evidence(state: IEGState) -> EvidenceEvaluation:
+def evaluate_evidence(state: IEGState, container=None) -> EvidenceEvaluation:
     state.add_trace("EVALUATOR", "Evaluating accumulated evidence sufficiency...")
     
     # Build evidence text for LLM
@@ -132,9 +135,10 @@ def evaluate_evidence(state: IEGState) -> EvidenceEvaluation:
     
     system_prompt = "You are a strict logical evaluator. Output only valid JSON. Do NOT hallucinate evidence."
     
+    llm = container.get_llm()
     for attempt in range(3):
         try:
-            raw_output = llm_provider.generate(
+            raw_output = llm.generate(
                 prompt, 
                 system_prompt=system_prompt, 
                 json_mode=True,
@@ -151,7 +155,7 @@ def evaluate_evidence(state: IEGState) -> EvidenceEvaluation:
                 # Force termination if evaluator breaks
                 return EvidenceEvaluation(sufficient=True, reasoning="Evaluator failed, forcing synthesis.", missing_information=[], follow_up_queries=[])
 
-def synthesize(state: IEGState):
+def synthesize(state: IEGState, container=None):
     state.add_trace("SYNTHESIS", "Starting grounded synthesis...")
     
     if not state.evidence:
@@ -175,8 +179,9 @@ def synthesize(state: IEGState):
     
     prompt = f"Context:\n{context}\n\nOriginal Query: {state.original_query}"
     
+    llm = container.get_llm()
     try:
-        raw_answer = llm_provider.generate(
+        raw_answer = llm.generate(
             prompt, 
             system_prompt=system_prompt, 
             json_mode=False,
@@ -190,12 +195,12 @@ def synthesize(state: IEGState):
         state.final_answer = f"Error during synthesis: {e}"
         state.add_trace("SYNTHESIS_ERROR", str(e))
 
-def run_ieg(query: str, max_iterations: int = 3) -> IEGState:
+def run_ieg(query: str, max_iterations: int = 3, container=None) -> IEGState:
     state = IEGState(query, max_iterations=max_iterations)
     state.add_trace("ORCHESTRATOR", "Initializing Iterative Evidence Graph (IEG) workflow.")
     
     # 1. First Pass Decompose
-    decomp = decompose_query(state)
+    decomp = decompose_query(state, container=container)
     queries_to_run = decomp.subqueries
     
     # Core Iterative Loop
@@ -204,12 +209,12 @@ def run_ieg(query: str, max_iterations: int = 3) -> IEGState:
         
         # 2. Retrieve
         if queries_to_run:
-            retrieve_parallel(state, queries_to_run)
+            retrieve_parallel(state, queries_to_run, container=container)
         else:
             state.add_trace("ORCHESTRATOR", "No queries to run this iteration.")
             
         # 3. Evaluate
-        evaluation = evaluate_evidence(state)
+        evaluation = evaluate_evidence(state, container=container)
         
         # 4. Check status
         if evaluation.sufficient:
@@ -235,6 +240,6 @@ def run_ieg(query: str, max_iterations: int = 3) -> IEGState:
         state.add_trace("ORCHESTRATOR", state.termination_reason)
         
     # 5. Synthesize Final Answer
-    synthesize(state)
+    synthesize(state, container=container)
     
     return state

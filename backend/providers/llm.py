@@ -141,4 +141,13 @@ class LLMProvider:
             print(f"Local HF LLM Error: {e}")
             return f"Error: {e}"
 
-llm_provider = LLMProvider()
+# -------------------------------------------------------------
+# PHASE 4: Component Registration
+# -------------------------------------------------------------
+from core.registry import registry
+from typing import Any
+
+def create_llm_provider() -> Any:
+    return LLMProvider()
+
+registry.register_llm("default", create_llm_provider)

@@ -1,6 +1,4 @@
-from providers.llm import llm_provider
-
-def route_query(query: str) -> str:
+def route_query(query: str, container=None) -> str:
     """
     Decides the route based on the query. 
     Routes: DIRECT, RAG, MULTI_MODAL, AGENTIC
@@ -15,9 +13,10 @@ Query: '{query}'
 
 Respond with ONLY the category name."""
     
-    response = llm_provider.generate(prompt=prompt, system_prompt="You are a strict routing system.").strip().upper()
+    llm = container.get_llm()
+    response = llm.generate(prompt=prompt, system_prompt="You are a strict routing system.").strip().upper()
     
-    valid_routes = ["DIRECT", "RAG", "MULTI_MODAL", "AGENTIC"]
+    valid_routes = ["DIRECT", "RAG", "MULTI_MODAL", "AGENTIC", "IEG"]
     for route in valid_routes:
         if route in response:
             return route
