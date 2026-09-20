@@ -33,3 +33,8 @@ dist/
 
 # BM25 Root Index
 bm25_index.pkl
+
+# Phase 12 Local Inference
+.syntera-nvidia/
+experiments/models/
+.local_github_tokens_vault
