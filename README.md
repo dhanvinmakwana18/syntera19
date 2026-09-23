@@ -95,6 +95,6 @@ We conducted an end-to-end evaluation using a synthetic 10-query dataset coverin
 - **Local Qdrant Test Lock**: Fixed by adding an in-memory test isolation mode (`TESTING=True`).
 - **Grounding Limitation**: Currently, grounding primarily checks for the *existence* of citations (`[Source X]`) matched to retrieved chunks (lexical verification). True semantic entailment verification (checking if the cited claim matches the source) is skipped to optimize latency, but traces are clearly marked as `CITED` rather than `GROUNDED` to reflect this.
 - **Small Evaluation Dataset**: The current eval dataset is small and optimized for smoke testing the pipeline structure.
-- **Implemented**: Advanced Hybrid RAG, Cross-Encoder Reranking, Direct Generation, Document Ingestion, Qdrant + BM25 Stores, Agentic Routing, Observability Traces, AI Evolution Engine, Hardened Multi-Agent Swarm.
-- **Planned**: Advanced Multi-Modal execution (Llava integration).
+- **Implemented**: Advanced Hybrid RAG, Cross-Encoder Reranking, Direct Generation, Document Ingestion, Qdrant + BM25 Stores, Agentic Routing, Observability Traces, AI Evolution Engine (Phase 9), Hardened Multi-Agent Swarm (Phase 10), Durability & Memory (Phase 11), Secure NVIDIA Provider Integration, Local CUDA Environment, and NVIDIA Multi-Model Resource-Aware Routing (Phase 12).
+- **Planned**: Advanced Multi-Modal execution, Phase 13.
 

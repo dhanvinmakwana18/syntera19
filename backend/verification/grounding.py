@@ -11,13 +11,12 @@ def validate_citations(response: str, allowed_sources: list) -> str:
         return response + warning
     return response
 
-def evaluate_support(claim: str, evidence: str) -> bool:
-    from providers.llm import llm_provider
+def evaluate_support(claim: str, evidence: str, intelligence_core) -> bool:
     prompt = f"Evidence:\n{evidence}\n\nClaim:\n{claim}\n\nBased ONLY on the evidence above, is the claim fully supported? Answer strictly with YES or NO."
     try:
         system_prompt = "You are a strict logical validator. Evaluate entailment and output only YES or NO."
-        res = llm_provider.generate(prompt=prompt, system_prompt=system_prompt).strip().upper()
-        return "YES" in res
+        res = intelligence_core.generate(prompt=prompt, system_prompt=system_prompt)
+        return "YES" in res.content.strip().upper()
     except Exception:
         return False
 

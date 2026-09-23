@@ -38,3 +38,6 @@ bm25_index.pkl
 .syntera-nvidia/
 experiments/models/
 .local_github_tokens_vault
+
+# IDEs
+.idea/

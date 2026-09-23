@@ -14,16 +14,11 @@ class Settings(BaseSettings):
     DOCUMENTS_DIR: str = os.path.join(DATA_DIR, "documents")
     
     # LLM Provider Abstraction
-    LLM_PROVIDER: str = "ollama" # ollama, gemini, astra, openai
+    LLM_PROVIDER: str = "ollama" # ollama, hf, nvidia (future)
     LLM_BASE_URL: str = ""
     LLM_MODEL: str = "llama3" # Default local model for ollama
     
-    OPENAI_API_KEY: Optional[str] = None
-    ASTRA_API_KEY: Optional[str] = None
-    ASTRA_MODEL: str = "gpt-6-astra"
-    ASTRA_TEMPERATURE: float = 0.2
-    ASTRA_MAX_RETRIES: int = 3
-    
+
     # Retrieval configuration
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     QDRANT_COLLECTION_NAME: str = "nexus_knowledge"

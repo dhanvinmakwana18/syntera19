@@ -12,6 +12,15 @@ class ApplicationContainer:
         
     def get_embedding_provider(self, name: str = "sentence_transformers"):
         if "embedding_provider" not in self._instances:
+            import os
+            # Phase 12.5: Use NVIDIA Embedding if API key present
+            if os.environ.get("NVIDIA_API_KEY"):
+                try:
+                    from providers.nvidia_provider import NVIDIAEmbeddingProvider
+                    self._instances["embedding_provider"] = NVIDIAEmbeddingProvider()
+                    return self._instances["embedding_provider"]
+                except Exception:
+                    pass
             self._instances["embedding_provider"] = self.registry.get_embedding_provider(name)
         return self._instances["embedding_provider"]
 
@@ -26,38 +35,79 @@ class ApplicationContainer:
             self._instances["bm25_store"] = self.registry.get_retriever(name)
         return self._instances["bm25_store"]
 
-    def get_llm(self, name: str = "default"):
-        if "llm" not in self._instances:
-            self._instances["llm"] = self.registry.get_llm(name)
-        return self._instances["llm"]
-
     def get_reranker(self, name: str = "cross_encoder"):
         if "reranker" not in self._instances:
+            import os
+            if os.environ.get("NVIDIA_API_KEY"):
+                try:
+                    from providers.nvidia_provider import NVIDIAReranker
+                    self._instances["reranker"] = NVIDIAReranker()
+                    return self._instances["reranker"]
+                except Exception:
+                    pass
             self._instances["reranker"] = self.registry.get_reranker(name)
         return self._instances["reranker"]
 
     def get_intelligence(self):
         if "intelligence" not in self._instances:
+            import os
             from intelligence.core import IntelligenceCore
             from intelligence.router import ModelRouter
-            from intelligence.providers.hf_provider import HuggingFaceProvider
+            from intelligence.fabric import ProviderFabric
+            from providers.hf_provider import HuggingFaceProvider
             
-            # Since Ollama might be unstable on this CPU-only VM, we register HuggingFace as default
-            # You could also add OllamaProvider here if desired.
-            provider = HuggingFaceProvider()
-            router = ModelRouter(default_provider=provider)
+            fabric = ProviderFabric()
             
-            # try:
-            #     # Try to use Ollama if available
-            #     from intelligence.providers.ollama_provider import OllamaProvider
-            #     import requests
-            #     if requests.get("http://localhost:11434/api/tags", timeout=1).status_code == 200:
-            #         ollama = OllamaProvider(model="qwen3:1.7b")
-            #         router.register_provider(ollama)
-            #         router.set_default("qwen3:1.7b")
-            # except Exception:
-            #     pass
+            # NVIDIA Integration (Phase 12.5)
+            if os.environ.get("NVIDIA_API_KEY"):
+                try:
+                    from providers.nvidia_provider import NVIDIAProvider
+                    from intelligence.contracts import ModelCapability
+                    
+                    # 1. Local Nemotron 4B -> RTX 4050 / llama.cpp
+                    try:
+                        local_4b = NVIDIAProvider(
+                            model_name="Nemotron-Mini-4B-Instruct-Q4_K_M",
+                            base_url="http://localhost:8080/v1",
+                            local=True,
+                            cost_tier="low",
+                            api_key="dummy",
+                            capabilities=[ModelCapability.TEXT_GENERATION, ModelCapability.STRUCTURED_OUTPUT]
+                        )
+                        fabric.register(local_4b)
+                    except Exception as e:
+                        pass
+                        
+                    # 2. Remote Nemotron 3 Ultra
+                    try:
+                        remote_ultra = NVIDIAProvider(
+                            model_name="nvidia/nemotron-3-ultra-550b-a55b",
+                            local=False,
+                            cost_tier="frontier"
+                        )
+                        fabric.register(remote_ultra)
+                    except Exception:
+                        pass
+                        
+                    # 3. Remote Nemotron Omni
+                    try:
+                        remote_omni = NVIDIAProvider(
+                            model_name="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+                            local=False,
+                            cost_tier="high",
+                            capabilities=[ModelCapability.TEXT_GENERATION, ModelCapability.VISION, ModelCapability.REASONING]
+                        )
+                        fabric.register(remote_omni)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+            else:
+                # Local fallback (HuggingFace) only if NVIDIA is disabled
+                hf_local = HuggingFaceProvider()
+                fabric.register(hf_local)
                 
+            router = ModelRouter(fabric=fabric)
             self._instances["intelligence"] = IntelligenceCore(router)
         return self._instances["intelligence"]
 
@@ -95,7 +145,7 @@ class ApplicationContainer:
         query_proc = self.registry.get_query_processor("passthrough")
         retrieval_pipe = self.build_pipeline(retrieval_mode=retrieval_mode, expand_neighbors=expand_neighbors)
         context_assembler = self.registry.get_context_assembler("default")
-        generator = self.registry.get_generator("standard", llm_provider=self.get_llm())
+        generator = self.registry.get_generator("standard", intelligence_core=self.get_intelligence())
         verifier = self.registry.get_verifier("citation")
         
         q_node = QueryNode(query_proc)
@@ -125,8 +175,8 @@ class ApplicationContainer:
         from orchestration.agentic.nodes import PlannerNode, DecisionNode, ToolExecutionNode, CriticNode
         from orchestration.agentic.tools import RAGTool
         
-        llm = self.get_llm()
-        generator = self.registry.get_generator("standard", llm_provider=llm)
+        llm = self.get_intelligence()
+        generator = self.registry.get_generator("standard", intelligence_core=llm)
         pipeline = self.build_pipeline(retrieval_mode="rerank")
         assembler = self.registry.get_context_assembler("default")
         
@@ -153,7 +203,6 @@ class ApplicationContainer:
 def build_container() -> ApplicationContainer:
     import vectorstore.qdrant_client
     import vectorstore.bm25_store
-    import providers.llm
     import providers.embeddings
     import retrieval.fusion
     import retrieval.post_processors
@@ -166,7 +215,6 @@ def build_container() -> ApplicationContainer:
     
     vectorstore.qdrant_client.register(registry)
     vectorstore.bm25_store.register(registry)
-    providers.llm.register(registry)
     providers.embeddings.register(registry)
     retrieval.fusion.register(registry)
     retrieval.post_processors.register(registry)

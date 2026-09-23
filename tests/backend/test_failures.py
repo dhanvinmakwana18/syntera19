@@ -41,7 +41,7 @@ def test_model_failure(client):
         def generate(self, *args, **kwargs):
             raise Exception("MODEL_FAILURE")
             
-    client.app.state.container._instances["llm"] = BrokenLLM()
+    client.app.state.container._instances["intelligence"] = BrokenLLM()
     response = client.post("/api/v1/chat", json={
         "query": "test query",
         "mode": "direct"

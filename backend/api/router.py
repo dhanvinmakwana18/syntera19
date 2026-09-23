@@ -73,8 +73,8 @@ async def chat_endpoint(request: QueryRequest, http_request: Request):
         gen_start = time.time()
         try:
             system_prompt = "You are Syntera, an advanced AI assistant. Answer the user's question directly and concisely."
-            llm = container.get_llm()
-            answer = llm.generate(prompt=request.query, system_prompt=system_prompt)
+            llm = container.get_intelligence()
+            answer = llm.generate(prompt=request.query, system_prompt=system_prompt).content
             add_trace("LLM_GENERATION", f"Direct response generated", (time.time() - gen_start) * 1000)
             cited = False  # No retrieval = not cited
             supported = False
@@ -216,8 +216,8 @@ async def chat_endpoint(request: QueryRequest, http_request: Request):
     else:
         # Fallback to DIRECT
         try:
-            llm = container.get_llm()
-            answer = llm.generate(prompt=request.query, system_prompt="You are Syntera, an advanced AI assistant.")
+            llm = container.get_intelligence()
+            answer = llm.generate(prompt=request.query, system_prompt="You are Syntera, an advanced AI assistant.").content
             add_trace("LLM_GENERATION", "Fallback direct generation")
         except Exception as e:
             answer = f"Error: {e}"

@@ -1,7 +1,8 @@
 import pytest
 import threading
+import pytest
 from core.container import build_container
-from intelligence.providers.hf_provider import HuggingFaceProvider
+from providers.hf_provider import HuggingFaceProvider
 from providers.embeddings import EmbeddingProvider
 from retrieval.reranker import CrossEncoderReranker
 

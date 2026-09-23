@@ -11,11 +11,12 @@ def mock_container():
             self.calls = 0
             
         def generate(self, *args, **kwargs):
-            response = self.responses[self.calls]
+            from intelligence.contracts import IntelligenceResponse
+            response_text = self.responses[self.calls]
             self.calls += 1
-            return response
+            return IntelligenceResponse(content=response_text)
             
-    container._instances["llm"] = FakeLLM()
+    container._instances["intelligence"] = FakeLLM()
     
     class FakePipeline:
         def run(self, *args, **kwargs):
@@ -30,7 +31,7 @@ def mock_container():
     return container
 
 def test_ieg_simple_query(mock_container):
-    mock_container._instances["llm"].responses = [
+    mock_container._instances["intelligence"].responses = [
         '{"subqueries": [{"id": "q1", "query": "test query", "purpose": "test", "dependency": null}]}',
         '{"sufficient": true, "reasoning": "Got everything.", "missing_information": [], "follow_up_queries": []}',
         'Final answer [Source 1]'
@@ -58,7 +59,7 @@ def test_ieg_simple_query(mock_container):
     assert "Evidence Evaluator deemed context sufficient" in state.termination_reason
 
 def test_ieg_insufficient_then_sufficient(mock_container):
-    mock_container._instances["llm"].responses = [
+    mock_container._instances["intelligence"].responses = [
         '{"subqueries": [{"id": "q1", "query": "test query", "purpose": "test"}]}',
         '{"sufficient": false, "reasoning": "Missing detail", "missing_information": ["detail"], "follow_up_queries": [{"id": "q2", "query": "detail", "purpose": "find detail"}]}',
         '{"sufficient": true, "reasoning": "Got detail.", "missing_information": [], "follow_up_queries": []}',
@@ -85,7 +86,7 @@ def test_ieg_insufficient_then_sufficient(mock_container):
     assert "Final answer" in state.final_answer
 
 def test_ieg_max_iterations(mock_container):
-    mock_container._instances["llm"].responses = [
+    mock_container._instances["intelligence"].responses = [
         '{"subqueries": [{"id": "q1", "query": "test query", "purpose": "test"}]}',
         '{"sufficient": false, "reasoning": "Missing detail", "missing_information": ["detail"], "follow_up_queries": [{"id": "q2", "query": "detail", "purpose": "find detail"}]}',
         '{"sufficient": false, "reasoning": "Still missing", "missing_information": ["more"], "follow_up_queries": [{"id": "q3", "query": "more", "purpose": "more"}]}',

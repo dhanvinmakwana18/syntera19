@@ -7,8 +7,8 @@ class PassthroughQueryProcessor(BaseQueryProcessor):
         return [query]
 
 class StandardRAGGenerator(BaseGenerator):
-    def __init__(self, llm_provider):
-        self.llm = llm_provider
+    def __init__(self, intelligence_core):
+        self.intelligence = intelligence_core
         
     def generate(self, query: Query, context: GenerationContext, **kwargs) -> GenerationResult:
         system_prompt = (
@@ -18,15 +18,15 @@ class StandardRAGGenerator(BaseGenerator):
         )
         prompt = f"Context:\n{context.text}\n\nQuery: {query.text}"
         
-        raw_response = self.llm.generate(prompt=prompt, system_prompt=system_prompt)
+        response = self.intelligence.generate(prompt=prompt, system_prompt=system_prompt)
         
         return GenerationResult(
-            answer=raw_response,
-            raw_response=raw_response,
-            usage_metrics={}
+            answer=response.content,
+            raw_response=response.content,
+            usage_metrics=response.usage
         )
 
 
 def register(registry):
     registry.register_query_processor("passthrough", lambda **kwargs: PassthroughQueryProcessor())
-    registry.register_generator("standard", lambda llm_provider, **kwargs: StandardRAGGenerator(llm_provider))
+    registry.register_generator("standard", lambda intelligence_core, **kwargs: StandardRAGGenerator(intelligence_core))

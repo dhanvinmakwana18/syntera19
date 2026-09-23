@@ -85,11 +85,13 @@ def health_check(request: Request):
     
     # Check LLM provider
     try:
-        llm = container.get_llm()
-        if getattr(llm, "gemini_api_key", None):
-            components["llm"] = {"status": "ok", "provider": "gemini"}
+        intelligence = container.get_intelligence()
+        # Ensure default provider exists
+        if intelligence.router._default:
+            provider_name = intelligence.router._default.profile.provider
+            components["llm"] = {"status": "ok", "provider": provider_name}
         else:
-            components["llm"] = {"status": "ok", "provider": "ollama (local)"}
+            components["llm"] = {"status": "ok", "provider": "unknown"}
     except Exception as e:
         components["llm"] = {"status": "error", "detail": str(e)}
         status = "DEGRADED"

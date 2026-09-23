@@ -19,12 +19,12 @@ class AgentState:
 def execute_agent(query: str, container=None) -> AgentState:
     state = AgentState(query)
     state.add_trace("Init", f"Starting agent workflow for query: '{query}'")
-    llm = container.get_llm()
+    llm = container.get_intelligence()
     
     # 1. ANALYZE
     state.status = "ANALYZING"
     analysis_prompt = f"Analyze this query and decide if we need RAG (retrieval), VISION (image), or DIRECT answer. Query: {query}\nRespond with just RAG, VISION, or DIRECT."
-    intent = llm.generate(prompt=analysis_prompt, system_prompt="You are a query analyzer.").strip().upper()
+    intent = llm.generate(prompt=analysis_prompt, system_prompt="You are a query analyzer.").content.strip().upper()
     state.add_trace("Analyze", f"Intent classified as {intent}")
     
     # 2. PLAN & SELECT TOOLS
@@ -68,7 +68,7 @@ def execute_agent(query: str, container=None) -> AgentState:
         prompt = f"Context:\n{context}\n\nQuery: {query}" if context else f"Query: {query}"
         
         try:
-            raw_response = llm.generate(prompt=prompt, system_prompt=system_prompt)
+            raw_response = llm.generate(prompt=prompt, system_prompt=system_prompt).content
             if "RAG" in intent and sources:
                 from verification.grounding import validate_citations
                 state.response = validate_citations(raw_response, sources)

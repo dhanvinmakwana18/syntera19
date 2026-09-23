@@ -54,7 +54,7 @@ def decompose_query(state: IEGState, container=None) -> QueryDecomposition:
     )
     
     # Retry loop for invalid JSON
-    llm = container.get_llm()
+    llm = container.get_intelligence()
     for attempt in range(3):
         try:
             raw_output = llm.generate(
@@ -63,7 +63,7 @@ def decompose_query(state: IEGState, container=None) -> QueryDecomposition:
                 json_mode=True, 
                 provider_override=state.model_routing.get("decomposer")
             )
-            data = _parse_json_safe(raw_output)
+            data = _parse_json_safe(raw_output.content)
             decomp = QueryDecomposition(**data)
             state.subqueries.extend(decomp.subqueries)
             state.add_trace("DECOMPOSER", f"Generated {len(decomp.subqueries)} subqueries.")
@@ -135,7 +135,7 @@ def evaluate_evidence(state: IEGState, container=None) -> EvidenceEvaluation:
     
     system_prompt = "You are a strict logical evaluator. Output only valid JSON. Do NOT hallucinate evidence."
     
-    llm = container.get_llm()
+    llm = container.get_intelligence()
     for attempt in range(3):
         try:
             raw_output = llm.generate(
@@ -144,7 +144,7 @@ def evaluate_evidence(state: IEGState, container=None) -> EvidenceEvaluation:
                 json_mode=True,
                 provider_override=state.model_routing.get("evaluator")
             )
-            data = _parse_json_safe(raw_output)
+            data = _parse_json_safe(raw_output.content)
             evaluation = EvidenceEvaluation(**data)
             state.evaluations.append(evaluation)
             state.add_trace("EVALUATOR", f"Sufficient: {evaluation.sufficient}. Missing: {len(evaluation.missing_information)} items.")
@@ -179,14 +179,14 @@ def synthesize(state: IEGState, container=None):
     
     prompt = f"Context:\n{context}\n\nOriginal Query: {state.original_query}"
     
-    llm = container.get_llm()
+    llm = container.get_intelligence()
     try:
         raw_answer = llm.generate(
             prompt, 
             system_prompt=system_prompt, 
             json_mode=False,
             provider_override=state.model_routing.get("synthesizer")
-        )
+        ).content
         # Reuse existing citation validator
         validated_answer = validate_citations(raw_answer, state.evidence)
         state.final_answer = validated_answer

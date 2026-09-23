@@ -13,8 +13,8 @@ Query: '{query}'
 
 Respond with ONLY the category name."""
     
-    llm = container.get_llm()
-    response = llm.generate(prompt=prompt, system_prompt="You are a strict routing system.").strip().upper()
+    llm = container.get_intelligence()
+    response = llm.generate(prompt=prompt, system_prompt="You are a strict routing system.").content.strip().upper()
     
     valid_routes = ["DIRECT", "RAG", "MULTI_MODAL", "AGENTIC", "IEG"]
     for route in valid_routes:

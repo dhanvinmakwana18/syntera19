@@ -14,7 +14,7 @@ import pytest
 import requests
 
 from intelligence.contracts import IntelligenceRequest, TaskComplexity
-from intelligence.providers.ollama_provider import OllamaProvider
+from providers.ollama_provider import OllamaProvider
 from intelligence.router import ModelRouter
 from intelligence.core import IntelligenceCore
 from intelligence.spec_generator import generate_specification, ParsedSpecification
@@ -32,7 +32,7 @@ skip_no_ollama = pytest.mark.skip(reason="Switched to HF fallback for reliabilit
 
 # ── Fixtures ──────────────────────────────────────────────
 
-from intelligence.providers.hf_provider import HuggingFaceProvider
+from providers.hf_provider import HuggingFaceProvider
 
 @pytest.fixture(scope="module")
 def provider():
