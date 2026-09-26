@@ -1,46 +1,12 @@
-﻿# Python bytecode
 __pycache__/
 *.pyc
-*.pyo
-
-# Local vector database (generated at runtime)
-syntera/data/qdrant/
-data/qdrant/
-
-# Local BM25 state (regenerated from Qdrant on startup)
-data/bm25/
-
-# Environment
-.env
-.env.*
-!.env.example
-
-# OS
+.pytest_cache/
+venv/
+env/
+*.egg-info/
+dist/
+build/
 .DS_Store
 Thumbs.db
-
-# Virtual Environments
-venv/
-.venv/
-
-# Node
-node_modules/
-dist/
-
-# SQLite
-*.sqlite
-*.db
-
-# BM25 Root Index
-bm25_index.pkl
-
-# Phase 12 Local Inference
-.syntera-nvidia/
-experiments/models/
-.local_github_tokens_vault
-
-# IDEs
-.idea/
-
-artifacts/
-__pycache__/
+artifacts/*.pdf
+.env
