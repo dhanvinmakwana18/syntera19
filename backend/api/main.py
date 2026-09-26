@@ -1,143 +1,138 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from core.config import settings
-from contextlib import asynccontextmanager
+import os
+import uuid
 import time
+from typing import List
+from pathlib import Path
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse
+from pydantic import BaseModel
+import sqlite3
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    from core.container import build_container
-    # Initialize dependency container
-    app.state.container = build_container()
-    yield
+# Import our agent
+from backend.agents.data_scientist import DataScientistAgent
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    description="Autonomous Agentic RAG & Multi-Modal AI Engine API",
-    version="2.0.0",
-    lifespan=lifespan,
-)
+app = FastAPI(title="Syntera API", version="0.2.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# --- In-Memory Job Queue (MVP) ---
+JOBS = {}
 
-# Structured error categories
-ERROR_CODES = {
-    "BACKEND_OFFLINE": "The backend engine is not reachable.",
-    "INVALID_REQUEST": "The request payload is invalid.",
-    "ROUTING_FAILURE": "Failed to classify the query intent.",
-    "RETRIEVAL_FAILURE": "Failed to retrieve documents from the vector store.",
-    "VECTOR_STORE_FAILURE": "The vector database is unavailable.",
-    "EMBEDDING_FAILURE": "Failed to generate embeddings.",
-    "RERANKING_FAILURE": "The reranking stage failed.",
-    "MODEL_FAILURE": "The LLM provider returned an error.",
-    "GROUNDING_FAILURE": "Failed to verify answer grounding.",
-}
+# --- Monitoring & Metrics (Prometheus Format + SQLite) ---
+DB_PATH = Path("artifacts/metrics.db")
+DB_PATH.parent.mkdir(exist_ok=True)
 
-# Global exception handler with structured errors
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    error_type = "INTERNAL_ERROR"
-    error_msg = str(exc)
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS metrics 
+                     (id INTEGER PRIMARY KEY, endpoint TEXT, method TEXT, 
+                     latency REAL, status INTEGER, timestamp REAL)''')
+init_db()
+
+# Simple Prometheus Counters
+class Metrics:
+    requests_total = 0
+    errors_total = 0
+    total_latency = 0.0
+
+@app.middleware("http")
+async def monitor_requests(request, call_next):
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as e:
+        status_code = 500
+        Metrics.errors_total += 1
+        raise e
+    finally:
+        latency = time.time() - start_time
+        Metrics.requests_total += 1
+        Metrics.total_latency += latency
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("INSERT INTO metrics (endpoint, method, latency, status, timestamp) VALUES (?, ?, ?, ?, ?)",
+                         (request.url.path, request.method, latency, status_code, time.time()))
+    return response
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def get_metrics():
+    """Prometheus-compatible metrics endpoint."""
+    return f"""# HELP syntera_requests_total Total API requests
+# TYPE syntera_requests_total counter
+syntera_requests_total {Metrics.requests_total}
+# HELP syntera_errors_total Total API errors
+# TYPE syntera_errors_total counter
+syntera_errors_total {Metrics.errors_total}
+# HELP syntera_latency_seconds_total Total latency
+# TYPE syntera_latency_seconds_total counter
+syntera_latency_seconds_total {Metrics.total_latency}
+"""
+
+# --- Job Processing ---
+def run_analysis_task(job_id: str, file_paths: List[str], goal: str):
+    JOBS[job_id]["status"] = "processing"
+    try:
+        agent = DataScientistAgent()
+        result = agent.analyze(file_paths, goal)
+        if "error" in result:
+            JOBS[job_id]["status"] = "failed"
+            JOBS[job_id]["error"] = result["error"]
+        else:
+            JOBS[job_id]["status"] = "completed"
+            JOBS[job_id]["result"] = result
+    except Exception as e:
+        JOBS[job_id]["status"] = "failed"
+        JOBS[job_id]["error"] = str(e)
+
+# --- Endpoints ---
+@app.post("/analyze")
+async def analyze_datasets(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...), goal: str = "Perform comprehensive EDA and model training."):
+    job_id = str(uuid.uuid4())
+    temp_dir = Path(f"artifacts/temp_{job_id}")
+    temp_dir.mkdir(parents=True, exist_ok=True)
     
-    # Classify known error patterns
-    err_lower = error_msg.lower()
-    if "connection refused" in err_lower or "connection error" in err_lower:
-        error_type = "MODEL_FAILURE"
-    elif "qdrant" in err_lower or "vector" in err_lower:
-        error_type = "VECTOR_STORE_FAILURE"
-    elif "embedding" in err_lower:
-        error_type = "EMBEDDING_FAILURE"
+    file_paths = []
+    for f in files:
+        file_path = temp_dir / f.filename
+        with open(file_path, "wb") as buffer:
+            buffer.write(await f.read())
+        file_paths.append(str(file_path))
         
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error_code": error_type,
-            "detail": ERROR_CODES.get(error_type, "An unexpected error occurred."),
-            "message": error_msg,
-        },
-    )
+    JOBS[job_id] = {"status": "queued", "files": [f.filename for f in files], "created_at": time.time()}
+    background_tasks.add_task(run_analysis_task, job_id, file_paths, goal)
+    return {"job_id": job_id, "status": "queued", "message": "Background analysis started."}
 
-from api.router import api_router
-from api.kb_router import kb_router
-from api.multimodal_router import mm_router
+@app.get("/status/{job_id}")
+def check_status(job_id: str):
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JOBS[job_id]
 
-app.include_router(api_router, prefix=settings.API_V1_STR)
-app.include_router(kb_router, prefix=f"{settings.API_V1_STR}/kb")
-app.include_router(mm_router, prefix=settings.API_V1_STR)
+@app.get("/report/{job_id}")
+def get_report(job_id: str):
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = JOBS[job_id]
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Report not ready yet")
+        
+    pdf_path = job["result"].get("report_pdf")
+    if not pdf_path or not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF report file not found on disk")
+        
+    return FileResponse(path=pdf_path, filename=f"syntera_report_{job_id}.pdf", media_type="application/pdf")
 
-@app.get("/health")
-def health_check(request: Request):
-    """Comprehensive health check for Syntera engine."""
-    status = "ONLINE"
-    components = {}
-    
-    container = getattr(request.app.state, "container", None)
-    if not container:
-        return {"status": "INITIALIZING"}
-    
-    # Check LLM provider
-    try:
-        intelligence = container.get_intelligence()
-        # Ensure default provider exists
-        if intelligence.router._default:
-            provider_name = intelligence.router._default.profile.provider
-            components["llm"] = {"status": "ok", "provider": provider_name}
-        else:
-            components["llm"] = {"status": "ok", "provider": "unknown"}
-    except Exception as e:
-        components["llm"] = {"status": "error", "detail": str(e)}
-        status = "DEGRADED"
-    
-    # Check vector store
-    try:
-        dense_retriever = container.get_vector_store()
-        v_store = dense_retriever.vector_store
-        info = v_store.client.get_collection(v_store.collection_name)
-        count = getattr(info, 'points_count', getattr(info, 'vectors_count', 0))
-        components["vector_store"] = {
-            "status": "ok",
-            "collection": v_store.collection_name,
-            "points_count": count
-        }
-    except Exception as e:
-        components["vector_store"] = {"status": "error", "detail": str(e)}
-        status = "DEGRADED"
-    
-    # Check embedding model
-    try:
-        emb = container.get_embedding_provider()
-        components["embeddings"] = {
-            "status": "ok",
-            "model": settings.EMBEDDING_MODEL,
-            "vector_size": emb.vector_size
-        }
-    except Exception as e:
-        components["embeddings"] = {"status": "error", "detail": str(e)}
-        status = "DEGRADED"
-    
-    # Check reranker
-    try:
-        reranker = container.get_reranker()
-        if getattr(reranker, "model", None) is not None:
-            components["reranker"] = {"status": "ok", "model": getattr(reranker, "model_name", "cross_encoder")}
-        else:
-            components["reranker"] = {"status": "degraded", "detail": "Model not loaded, fallback active"}
-            if status == "ONLINE":
-                status = "DEGRADED"
-    except Exception as e:
-        components["reranker"] = {"status": "error", "detail": str(e)}
-    
-    return {
-        "status": status,
-        "service": settings.PROJECT_NAME,
-        "version": "2.0.0",
-        "components": components
-    }
+@app.delete("/report/{job_id}")
+def delete_job(job_id: str):
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = JOBS.pop(job_id)
+    # Cleanup temp files
+    temp_dir = Path(f"artifacts/temp_{job_id}")
+    if temp_dir.exists():
+        for f in temp_dir.iterdir():
+            f.unlink()
+        temp_dir.rmdir()
+    return {"status": "deleted", "job_id": job_id}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

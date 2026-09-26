@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: syntera-api
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./artifacts:/app/artifacts
+    restart: unless-stopped
+
+  ui:
+    build: .
+    container_name: syntera-ui
+    command: streamlit run ds_frontend.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    volumes:
+      - ./artifacts:/app/artifacts
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  cli:
+    build: .
+    container_name: syntera-cli
+    # Keeps the CLI container alive so users can `docker exec -it syntera-cli syntera analyze ...`
+    command: tail -f /dev/null
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+    volumes:
+      - ./artifacts:/app/artifacts
+      - .:/app  # Optional: mount code for active dev
